@@ -1,4 +1,4 @@
-export type ErrorStatus =
+export type ErrorStatusCode =
   | 400
   | 401
   | 403
