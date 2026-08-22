@@ -11,7 +11,7 @@ export class AppException
   readonly code: string;
   readonly displayMessage?: string | undefined;
   readonly fields?: FieldError[] | undefined;
-  readonly timestamp?: string;
+  readonly timestamp: string;
 
   constructor(params: GenericExceptionResponse) {
     super(params.status, { message: params.message });
@@ -20,6 +20,17 @@ export class AppException
     this.code = params.code;
     this.displayMessage = params.displayMessage;
     this.fields = params.fields;
-    this.timestamp = new Date().toISOString();
+    this.timestamp = params.timestamp ?? new Date().toISOString();
+  }
+
+  toJSON(): GenericExceptionResponse {
+    return {
+      status: this.status,
+      code: this.code,
+      message: this.message,
+      displayMessage: this.displayMessage,
+      fields: this.fields,
+      timestamp: this.timestamp,
+    };
   }
 }
