@@ -148,13 +148,29 @@ async function runServiceTests() {
   assert.equal(invalidLoginJson.code, "BAD_REQUEST");
   assert.ok(invalidLoginJson.fields && invalidLoginJson.fields.length > 0);
 
-  // Web Transaction invalid checkout
-  const invalidCheckoutRes = await app.request("/web/transactions/checkout", {
+  // Test authMiddleware: unauthenticated request to protected route should return 401
+  const unauthCheckoutRes = await app.request("/web/transactions/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ planCode: "", paymentMethod: "INVALID" }),
+    body: JSON.stringify({ planCode: "PLUS", paymentMethod: "PIX" }),
   });
-  assert.equal(invalidCheckoutRes.status, 400);
+  assert.equal(unauthCheckoutRes.status, 401);
+  const unauthJson = (await unauthCheckoutRes.json()) as any;
+  assert.equal(unauthJson.code, "UNAUTHORIZED");
+
+  // Test authMiddleware with token present but invalid body -> should pass middleware and fail on validation with 400
+  const invalidCheckoutWithTokenRes = await app.request(
+    "/web/transactions/checkout",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer mock-token",
+      },
+      body: JSON.stringify({ planCode: "", paymentMethod: "INVALID" }),
+    },
+  );
+  assert.equal(invalidCheckoutWithTokenRes.status, 400);
 
   // Mobile Auth invalid input
   const mobileLoginRes = await app.request("/mobile/user/login", {
@@ -164,7 +180,11 @@ async function runServiceTests() {
   });
   assert.equal(mobileLoginRes.status, 400);
 
-  console.log("✔ Hono routes and error handler verified!\n");
+  // Mobile Profile without token -> 401
+  const mobileUnauthProfileRes = await app.request("/mobile/user/profile");
+  assert.equal(mobileUnauthProfileRes.status, 401);
+
+  console.log("✔ Hono routes, authMiddleware and error handler verified!\n");
   console.log("🎉 ALL CORE API INTEGRATION TESTS PASSED SUCCESSFULLY!");
 }
 

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { profileService } from "../../../services/index.js";
+import { authMiddleware } from "../../../middlewares/index.js";
 import {
   changePasswordSchema,
   userPatchSchema,
@@ -8,15 +9,14 @@ import {
 
 const profileRoute = new Hono();
 
+// todas as rotas de perfil exigem autenticacao
+profileRoute.use("*", authMiddleware);
+
 // obter dados do perfil do usuario logado
 profileRoute.get("/", async (c) => {
-  const authHeader = c.req.header("Authorization");
-  const cookieHeader = c.req.header("Cookie");
+  const authHeaders = c.get("authHeaders");
   const result = await profileService.getProfile({
-    headers: {
-      ...(authHeader ? { Authorization: authHeader } : {}),
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-    },
+    headers: authHeaders,
   });
   return c.json(result);
 });
@@ -25,13 +25,9 @@ profileRoute.get("/", async (c) => {
 profileRoute.put("/", async (c) => {
   const body = await c.req.json();
   const validData = userPutSchema.parse(body);
-  const authHeader = c.req.header("Authorization");
-  const cookieHeader = c.req.header("Cookie");
+  const authHeaders = c.get("authHeaders");
   const result = await profileService.updateProfile(validData, {
-    headers: {
-      ...(authHeader ? { Authorization: authHeader } : {}),
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-    },
+    headers: authHeaders,
   });
   return c.json(result);
 });
@@ -40,13 +36,9 @@ profileRoute.put("/", async (c) => {
 profileRoute.patch("/", async (c) => {
   const body = await c.req.json();
   const validData = userPatchSchema.parse(body);
-  const authHeader = c.req.header("Authorization");
-  const cookieHeader = c.req.header("Cookie");
+  const authHeaders = c.get("authHeaders");
   const result = await profileService.patchProfile(validData, {
-    headers: {
-      ...(authHeader ? { Authorization: authHeader } : {}),
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-    },
+    headers: authHeaders,
   });
   return c.json(result);
 });
@@ -55,26 +47,18 @@ profileRoute.patch("/", async (c) => {
 profileRoute.patch("/password", async (c) => {
   const body = await c.req.json();
   const validData = changePasswordSchema.parse(body);
-  const authHeader = c.req.header("Authorization");
-  const cookieHeader = c.req.header("Cookie");
+  const authHeaders = c.get("authHeaders");
   await profileService.changePassword(validData, {
-    headers: {
-      ...(authHeader ? { Authorization: authHeader } : {}),
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-    },
+    headers: authHeaders,
   });
   return c.body(null, 204);
 });
 
 // deletar conta do usuario logado
 profileRoute.delete("/", async (c) => {
-  const authHeader = c.req.header("Authorization");
-  const cookieHeader = c.req.header("Cookie");
+  const authHeaders = c.get("authHeaders");
   await profileService.deleteCurrentUser({
-    headers: {
-      ...(authHeader ? { Authorization: authHeader } : {}),
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-    },
+    headers: authHeaders,
   });
   return c.body(null, 204);
 });

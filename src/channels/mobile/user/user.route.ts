@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { authService, profileService } from "../../../services/index.js";
+import { authMiddleware } from "../../../middlewares/index.js";
 import { loginSchema, registerSchema } from "../../../schemas/index.js";
 
 const userRoute = new Hono();
@@ -20,11 +21,11 @@ userRoute.post("/register", async (c) => {
   return c.json(result, 201);
 });
 
-// rota de perfil para mobile
-userRoute.get("/profile", async (c) => {
-  const authHeader = c.req.header("Authorization");
+// rota de perfil para mobile (protegida)
+userRoute.get("/profile", authMiddleware, async (c) => {
+  const authHeaders = c.get("authHeaders");
   const result = await profileService.getProfile({
-    headers: authHeader ? { Authorization: authHeader } : undefined,
+    headers: authHeaders,
   });
   return c.json(result);
 });
