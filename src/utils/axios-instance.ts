@@ -1,14 +1,23 @@
-import axios, { type CreateAxiosDefaults } from "axios";
+import axios, { type AxiosInstance, type CreateAxiosDefaults } from "axios";
+import { env } from "../config/env.js";
 
-const config: CreateAxiosDefaults = {
-  baseURL: process.env.API_BASE_URL,
-  timeout: 10000,
-  timeoutErrorMessage: "Erro ao conectar com o servidor",
-  headers: {
-    "Content-Type": "application/json",
-  },
-};
+export function createAxiosInstance(
+  overrides?: CreateAxiosDefaults,
+): AxiosInstance {
+  const config: CreateAxiosDefaults = {
+    baseURL: overrides?.baseURL ?? env.API_BASE_URL,
+    timeout: overrides?.timeout ?? env.API_TIMEOUT_MS,
+    timeoutErrorMessage:
+      overrides?.timeoutErrorMessage ??
+      "Tempo limite excedido ao conectar com o serviço externo",
+    headers: {
+      "Content-Type": "application/json",
+      ...overrides?.headers,
+    },
+    ...overrides,
+  };
 
-const axiosInstance = axios.create(config);
+  return axios.create(config);
+}
 
-export { axiosInstance };
+export const axiosInstance = createAxiosInstance();
