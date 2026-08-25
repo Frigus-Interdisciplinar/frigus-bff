@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { setCookie, deleteCookie } from "hono/cookie";
 import { authService } from "../../../services/index.js";
 import {
   loginSchema,
@@ -13,7 +14,25 @@ authRoute.post("/login", async (c) => {
   const body = await c.req.json();
   const validData = loginSchema.parse(body);
   const result = await authService.login(validData);
-  return c.json(result);
+
+  setCookie(c, "accessToken", result.accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Lax",
+    maxAge: 15 * 60, // 15 minutos
+    path: "/",
+  });
+  setCookie(c, "refreshToken", result.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Lax",
+    maxAge: 30 * 24 * 60 * 60, // 30 dias
+    path: "/"
+  });
+
+  return c.json({
+    user: result.user,
+  });
 });
 
 // rota de registro para web
