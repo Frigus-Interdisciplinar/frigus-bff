@@ -7,4 +7,5 @@ export * from "./user.type.js";
 export * from "./auth.type.js";
 export * from "./plan.type.js";
 export * from "./transaction.type.js";
+export * from "./core-api.type.js";
 export * from "./domestic.type.js";
