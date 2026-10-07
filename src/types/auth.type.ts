@@ -21,3 +21,15 @@ export interface UserRegisterRequest {
 export interface RefreshRequest {
   refreshToken?: string;
 }
+
+export interface PasswordRecoveryRequest {
+  email: string;
+}
+
+export interface VerifyPasswordRecoveryCodeRequest extends PasswordRecoveryRequest {
+  code: string;
+}
+
+export interface ResetPasswordRequest extends VerifyPasswordRecoveryCodeRequest {
+  newPassword: string;
+}

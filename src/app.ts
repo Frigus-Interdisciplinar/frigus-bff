@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { env } from "./config/env.js";
 import { errorHandler } from "./middlewares/index.js";
 import { webApp, mobileApp } from "./channels/index.js";
 
@@ -9,7 +10,7 @@ const app = new Hono();
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: env.WEB_ORIGINS,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "Idempotency-Key"],
     credentials: true,

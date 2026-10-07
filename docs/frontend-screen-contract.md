@@ -4,7 +4,7 @@ O frontend foi analisado antes da implementação. As telas não chamam a API al
 
 | Tela | Dados e ações vistos na interface | Contrato BFF disponível |
 | --- | --- | --- |
-| Login e cadastro | login, cadastro, refresh e logout | `POST /web/auth/login`, `/register`, `/refresh`, `/logout` |
+| Login, cadastro e recuperação de senha | login, cadastro, refresh, logout, solicitar código, validar código e redefinir senha | `POST /web/auth/login`, `/register`, `/refresh`, `/logout`, `/forgot-password`, `/verify-reset-code`, `/reset-password` |
 | Perfil e configurações de conta | consultar, editar perfil, senha e exclusão | `GET|PUT|PATCH|DELETE /web/profile`, `PATCH /web/profile/password` |
 | Planos | catálogo, assinatura atual, cancelamento/reativação e checkout | `GET /web/plans`, `GET|POST /web/plans/subscription*`, `POST /web/transactions/checkout` |
 | Família | grupos, membros e convite por usuário já existente | `GET|POST /web/core/groups`, `GET|PUT /web/core/groups/:id`, `POST|DELETE /web/core/groups/:id/members` |
@@ -20,4 +20,4 @@ O frontend foi analisado antes da implementação. As telas não chamam a API al
 
 ## Telas ainda sem integração no frontend
 
-Home, Estoque, Detalhe de alimento, Alertas, Receitas, Lista de compras, Notificações, Família, Chat, Perfil, Configurações, Planos e todas as telas comerciais ainda usam arrays/objetos locais ou ações visuais. A tabela indica o que já pode ser conectado; as lacunas da core-api estão em `docs/core-api-todo.md`.
+Home, Estoque, Detalhe de alimento, Alertas, Receitas, Lista de compras, Notificações, Família, Chat, Perfil, Configurações, Planos e todas as telas comerciais ainda usam arrays/objetos locais ou ações visuais. A tabela indica o que já pode ser conectado; o trabalho pendente de integração no BFF está em `docs/core-api-todo.md`.

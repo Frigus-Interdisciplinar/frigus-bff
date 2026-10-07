@@ -4,6 +4,7 @@ import { z } from "zod";
 export const loginSchema = z.object({
   email: z.string().email("Email invalido"),
   rawPassword: z.string().min(1, "Senha deve ser preenchida"),
+  rememberMe: z.boolean().default(false),
 });
 
 // validacao de registro de novo usuario
@@ -26,4 +27,19 @@ export const registerSchema = z.object({
 
 export const refreshSchema = z.object({
   refreshToken: z.string().optional(),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Email invalido"),
+});
+
+export const resetPasswordSchema = z.object({
+  email: z.string().email("Email invalido"),
+  code: z.string().regex(/^\d{6}$/, "O código deve ter 6 dígitos"),
+  newPassword: registerSchema.shape.rawPassword,
+});
+
+export const verifyResetCodeSchema = resetPasswordSchema.pick({
+  email: true,
+  code: true,
 });

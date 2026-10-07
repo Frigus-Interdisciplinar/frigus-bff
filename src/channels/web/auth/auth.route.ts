@@ -1,19 +1,41 @@
 import { Hono } from "hono";
-import { setCookie, deleteCookie } from "hono/cookie";
+import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import { authService } from "../../../services/index.js";
 import {
+  forgotPasswordSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
+  resetPasswordSchema,
+  verifyResetCodeSchema,
 } from "../../../schemas/index.js";
 
 const authRoute = new Hono();
 
+authRoute.post("/forgot-password", async (c) => {
+  const body = forgotPasswordSchema.parse(await c.req.json());
+  await authService.requestPasswordRecovery(body);
+  return c.body(null, 204);
+});
+
+authRoute.post("/reset-password", async (c) => {
+  const body = resetPasswordSchema.parse(await c.req.json());
+  await authService.resetPassword(body);
+  return c.body(null, 204);
+});
+
+authRoute.post("/verify-reset-code", async (c) => {
+  const body = verifyResetCodeSchema.parse(await c.req.json());
+  await authService.verifyPasswordRecoveryCode(body);
+  return c.body(null, 204);
+});
+
 // rota de login para web
 authRoute.post("/login", async (c) => {
   const body = await c.req.json();
-  const validData = loginSchema.parse(body);
+  const { rememberMe, ...validData } = loginSchema.parse(body);
   const result = await authService.login(validData);
+  const persistentCookie = rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {};
 
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
@@ -26,8 +48,15 @@ authRoute.post("/login", async (c) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "Lax",
-    maxAge: 30 * 24 * 60 * 60, // 30 dias
+    ...persistentCookie,
     path: "/"
+  });
+  setCookie(c, "rememberMe", String(rememberMe), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Lax",
+    ...persistentCookie,
+    path: "/",
   });
 
   // The current web client keeps these fields in its session state. Cookies remain
@@ -49,6 +78,8 @@ authRoute.post("/refresh", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const validData = refreshSchema.parse(body);
   const cookieHeader = c.req.header("Cookie");
+  const rememberMe = getCookie(c, "rememberMe") === "true";
+  const persistentCookie = rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {};
   const result = await authService.refreshToken(validData.refreshToken, {
     headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
   });
@@ -63,7 +94,14 @@ authRoute.post("/refresh", async (c) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "Lax",
-    maxAge: 30 * 24 * 60 * 60,
+    ...persistentCookie,
+    path: "/",
+  });
+  setCookie(c, "rememberMe", String(rememberMe), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Lax",
+    ...persistentCookie,
     path: "/",
   });
   return c.json(result);
@@ -79,6 +117,7 @@ authRoute.post("/logout", async (c) => {
   });
   deleteCookie(c, "accessToken", { path: "/" });
   deleteCookie(c, "refreshToken", { path: "/" });
+  deleteCookie(c, "rememberMe", { path: "/" });
   return c.body(null, 204);
 });
 
