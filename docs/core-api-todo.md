@@ -4,6 +4,8 @@
 
 - Cadastro, seleção de conta (`DOMESTIC`, `COMMERCIAL`, `BUSINESS`), login,
   sessão por cookie HttpOnly, renovação, logout e recuperação de senha.
+- A opção “Manter conectado” controla a persistência do cookie de refresh e é
+  preservada durante a renovação da sessão.
 - Provisionamento do primeiro grupo/estoque para contas novas e inventário
   doméstico: contexto, resumo, produtos próprios, lotes e movimentações.
 - Lista de compras: listar/criar lista, adicionar/alterar/remover itens, marcar
