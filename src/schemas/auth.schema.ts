@@ -23,6 +23,7 @@ export const registerSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/,
       "A senha deve conter de 8 a 20 caracteres, com letra maiuscula, minuscula, numero e caractere especial",
     ),
+  accountType: z.enum(["DOMESTIC", "COMMERCIAL", "BUSINESS"]).default("DOMESTIC"),
 });
 
 export const refreshSchema = z.object({
