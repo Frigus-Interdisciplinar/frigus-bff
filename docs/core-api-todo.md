@@ -33,6 +33,8 @@ Quando forem adicionadas, conectar aos adaptadores acima e atualizar
 ## Já disponível
 
 - Login, cadastro, refresh, logout e recuperação de senha em `/web/auth/*`.
+- A opção “Manter conectado” controla a persistência do cookie de refresh e é
+  preservada durante a renovação da sessão.
 - Perfil em `/web/profile`.
 - Grupos básicos, estoques, lotes, movimentações, descartes, conversas/mensagens,
   planos e assinaturas em `/web/core`, `/web/plans` e `/web/transactions`.
