@@ -39,6 +39,7 @@ export interface CoreStockProduct {
   expireDate: string;
   productStatus?: string;
   category: string;
+  product?: CoreProduct;
 }
 
 export interface CoreProduct {
@@ -48,6 +49,8 @@ export interface CoreProduct {
   storagePlace: string;
   unitPrice: number;
   unitOfMeasure: string;
+  brand?: string;
+  imageUrl?: string;
 }
 
 export interface CoreStockMovement {
@@ -77,4 +80,26 @@ export interface CoreMessage {
   messageType?: string;
   content: string;
   createdAt: string;
+}
+
+export type CoreAdvertisementStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
+
+export interface CoreAdvertisement {
+  id: string;
+  advertiserId: string;
+  advertiserName: string;
+  name: string;
+  productName: string;
+  category: string;
+  description: string;
+  imageUrl: string;
+  destinationUrl?: string;
+  price?: number;
+  startDate?: string;
+  endDate?: string;
+  status: CoreAdvertisementStatus;
+  impressions: number;
+  clicks: number;
+  createdAt: string;
+  updatedAt: string;
 }

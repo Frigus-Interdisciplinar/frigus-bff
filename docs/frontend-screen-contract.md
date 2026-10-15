@@ -1,23 +1,34 @@
-# Contratos do BFF a partir das telas
+# Contratos de tela do Frigus Web
 
-O frontend foi analisado antes da implementação. As telas não chamam a API além de autenticação; elas mantêm listas e ações em estado local. Este documento é a ponte para retirar esses mocks sem criar dados inexistentes no BFF.
-
-| Tela | Dados e ações vistos na interface | Contrato BFF disponível |
+| Fluxo/tela | Estado neste checkout | Contrato BFF |
 | --- | --- | --- |
-| Login, cadastro e recuperação de senha | login, cadastro, refresh, logout, solicitar código, validar código e redefinir senha | `POST /web/auth/login`, `/register`, `/refresh`, `/logout`, `/forgot-password`, `/verify-reset-code`, `/reset-password` |
-| Perfil e configurações de conta | consultar, editar perfil, senha e exclusão | `GET|PUT|PATCH|DELETE /web/profile`, `PATCH /web/profile/password` |
-| Planos | catálogo, assinatura atual, cancelamento/reativação e checkout | `GET /web/plans`, `GET|POST /web/plans/subscription*`, `POST /web/transactions/checkout` |
-| Família | grupos, membros e convite por usuário já existente | `GET|POST /web/core/groups`, `GET|PUT /web/core/groups/:id`, `POST|DELETE /web/core/groups/:id/members` |
-| Estoque doméstico e comercial | estoques por grupo, lotes/produtos, edição e movimentação | `/web/core/inventory/groups/:groupId/stocks`, `/stocks`, `/stocks/:id/products`, `/stock-products`, `/stock-products/:id/movements` |
-| Detalhe de alimento/lote | produto do estoque e histórico de movimentações | `GET|PUT /web/core/inventory/stock-products/:id`, `GET|POST /web/core/inventory/stock-products/:id/movements` |
-| Chat | conversas, histórico e envio de mensagem | `/web/core/chat/conversations` e `/web/core/chat/conversations/:id/messages` |
-| Desperdícios (comercial) | histórico e registro de descarte | `GET|POST /web/core/discards` |
-| Inclusão de produto em lote | catálogo de produtos da core-api | `GET /web/plans/catalog/products` |
+| Cadastro, login e recuperação | Ligado. O cadastro escolhe doméstico, comercial ou empresarial (`BUSINESS`) e provisiona grupo/estoque. | `/web/auth/*`, `/web/core/groups`, `/web/core/inventory/*` |
+| Início doméstico | Resumo da API para totais, alertas, consumo e estoque. Alguns gráficos decorativos ainda são ilustrativos. | `/web/core/inventory/summary` |
+| Estoque doméstico e inclusão de produto/lote | Ligado à persistência. Cria produto próprio no grupo e lote no estoque. | `/web/core/groups/:id/products`, `/web/core/inventory/*` |
+| Lista doméstica de compras | Ligada para lista aberta, itens, status de compra, remoção e sugestões. | `/web/core/shopping-lists*` |
+| Configurações e notificações | Preferências e feed de notificações ligados. Controles de canal que não existem no contrato não devem ser tratados como persistidos. | `/web/core/preferences`, `/web/core/notifications*` |
+| Perfil e membros da família | Perfil lê a conta/grupo; convites de membros são persistidos. Ações de perfil restantes ainda precisam de integração ponta a ponta. | `/web/profile`, `/web/core/groups*` |
+| Alertas e telas comerciais | Alertas usam lotes reais; estoque, compras, descarte, despesas, relatórios mensais e equipe gravam/consultam dados persistidos. | `/web/core/inventory/*`, `/web/core/discards`, `/web/core/commercial/groups/:groupId/*` |
+| Receitas e favoritas | Catálogo, busca, sugestões, detalhe, disponibilidade dos ingredientes e favoritas usam dados da API. | `/web/core/recipes*` |
+| Chat e detalhes de lote comercial | Chat lista conversas/mensagens reais e envia mensagens. Detalhes de lote exibem dados e movimentações do inventário. | `/web/core/chat/*`, `/web/core/inventory/stock-products/:id*` |
+| Plano e checkout de assinatura | Planos domésticos/comerciais criam transação na API e acompanham o estado retornado. O processador é demonstrativo; não cobra, emite PIX/boleto nem integra adquirente. Pacotes empresariais não têm contrato de compra. | `/web/core/plans`, `/web/core/transactions/*` |
+| Estoque, compras, desperdício, despesas, relatórios e equipe comerciais | Telas gravam/listam dados no inventário, listas, descarte, despesas e relatórios. Membros/convites e permissões de leitura/edição também usam a API. | `/web/core/inventory/*`, `/web/core/shopping-lists*`, `/web/core/discards`, `/web/core/commercial/groups/:groupId/*` |
+| Painel empresarial e anúncios | Gestão, publicação e métricas agregadas usam a API; recomendação e segmentação não fazem parte do MVP. | `/web/core/advertisements/*`, `/mobile/advertisements/*` |
 
-## Migração importante
+## Anúncios empresariais (MVP)
 
-`/web/domestic/*` foi desativado: ele respondia com dados em memória e não persistia nada. Agora responde `501` de propósito. Migre as telas para `/web/core/*`; os contratos foram mantidos como adaptadores tipados e validados dos endpoints já existentes na core-api.
+- Painel próprio: `GET /web/core/advertisements/mine` lista anúncios da conta
+  empresarial autenticada; `POST` cria rascunho, `PUT /:id` edita e
+  `PATCH /:id/status` publica, pausa ou arquiva.
+- Entrega no app: `GET /web/core/advertisements/active` (Web) e
+  `GET /mobile/advertisements/active` (Mobile) retornam anúncios ativos dentro
+  do período, em ordem de criação, sem seleção personalizada. Impressões e
+  cliques são registrados em `POST /:id/impressions` e `POST /:id/clicks`.
+- A core-api persiste os anúncios em `advertisements`, restringe a gestão a
+  contas empresariais e calcula métricas agregadas por anúncio.
+- O MVP não inclui recomendações, segmentação de público, moderação, cobrança
+  ou atribuição de pedidos.
 
-## Telas ainda sem integração no frontend
-
-Home, Estoque, Detalhe de alimento, Alertas, Receitas, Lista de compras, Notificações, Família, Chat, Perfil, Configurações, Planos e todas as telas comerciais ainda usam arrays/objetos locais ou ações visuais. A tabela indica o que já pode ser conectado; o trabalho pendente de integração no BFF está em `docs/core-api-todo.md`.
+`/web/domestic/*` foi desativado: retornava estado em memória. As telas devem
+usar os contratos tipados sob `/web/core`, que repassam autenticação e respostas
+da core-api.

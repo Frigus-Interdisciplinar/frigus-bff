@@ -1,53 +1,48 @@
-# TODO — integração BFF e telas web
+# Estado de integração web, BFF e core-api
 
-Este documento separa contratos da core-api que ainda não foram expostos no BFF
-das telas web que ainda não existem neste checkout. `/web/domestic/*` permanece
-desativado porque retornava estado em memória; não voltar a usar esse contrato.
+## Fluxos ligados
 
-## Core-api com endpoint, ainda sem adaptador BFF
-
-- **Resumo/contexto de estoque:** `GET /stocks/my-summary` e
-  `GET /stocks/active-context` existem na core-api, mas ainda não estão em
-  `CoreApiService` nem em `/web/core`.
-- **Lista de compras:** expor `/shopping-lists`, itens, sugestões e conclusão,
-  com paginação, validação e propagação dos status `204`.
-- **Notificações e preferências:** expor `/notifications` e
-  `/profile/preferences`, preservando paginação e contratos de leitura.
-- **Receitas e ingredientes:** expor leitura, favoritos, disponibilidade e
-  sugestões de `/recipes` e consultas de `/ingredients`; manter escrita
-  administrativa protegida pela core-api.
-- **Convites e papéis de membros:** expor convites por e-mail, aceite e mudança
-  de papel. O adaptador atual só adiciona membro pelo `userId`.
-- **Produtos por grupo:** expor CRUD de `/groups/:groupId/products` caso a tela
-  comercial precise gerenciar catálogo próprio.
-- **Comercial:** expor despesas, relatórios mensal/CSV e funcionários em
-  `/commercial/groups/:groupId/*`; exportação deve preservar `text/csv`.
-## Telas web sem integração neste checkout
-
-O router de `frigus-react-web` contém Login, Cadastro e Recuperação de senha.
-Home, estoque, compras, notificações, receitas, família, chat, perfil,
-configurações, planos e telas comerciais ainda não existem no frontend atual.
-Quando forem adicionadas, conectar aos adaptadores acima e atualizar
-`frigus-react-web/docs/services.md`.
-
-## Já disponível
-
-- Login, cadastro, refresh, logout e recuperação de senha em `/web/auth/*`.
+- Cadastro, seleção de conta (`DOMESTIC`, `COMMERCIAL`, `BUSINESS`), login,
+  sessão por cookie HttpOnly, renovação, logout e recuperação de senha.
 - A opção “Manter conectado” controla a persistência do cookie de refresh e é
   preservada durante a renovação da sessão.
-- Perfil em `/web/profile`.
-- Grupos básicos, estoques, lotes, movimentações, descartes, conversas/mensagens,
-  planos e assinaturas em `/web/core`, `/web/plans` e `/web/transactions`.
-- Checkout de plano em `/web/transactions/checkout`; não chamar a seleção como
-  pagamento concluído sem aguardar o status da transação.
-- Os endpoints de resumo, compras, notificações, preferências, receitas,
-  convites, comercial e seleção de plano já existem na core-api. A lista acima
-  é trabalho de adaptador BFF, não implementação pendente na core-api. Veja
-  `frigus-core-api/docs/core-api-todo.md` para lacunas reais da API.
+- Provisionamento do primeiro grupo/estoque para contas novas e inventário
+  doméstico: contexto, resumo, produtos próprios, lotes e movimentações.
+- Lista de compras: listar/criar lista, adicionar/alterar/remover itens, marcar
+  compra, sugestões e limpar comprados.
+- Notificações e preferências da conta.
+- BFF expõe grupos, convites, receitas, conversas, anúncios, produtos por grupo,
+  despesas comerciais, relatórios mensais e funcionários às telas integradas.
 
-## Regras para os adaptadores
+## Limites e itens ainda fora da integração
 
-- Preservar UUIDs, IDs numéricos, campos nulos, paginação e status da core-api.
-- Validar entrada e resposta com Zod; repassar cookies/autorização e erros reais.
-- Não esconder indisponibilidade com fallback para mock ou estado em memória.
-- Adicionar cobertura de rota/service ao integrar cada capability.
+- Detalhe/edição de lote e histórico de movimentações agora usam o inventário
+  real. Alertas domésticos derivam dos lotes; descarte usa o contrato BFF.
+- Chat, conversas e envio de mensagens agora usam a API. Algumas ações de perfil
+  ainda mantêm estados locais. Catálogo,
+  detalhe, sugestões e favoritas de receitas usam a API. Convites familiares
+  também usam a API.
+- Tela de assinatura usa a API de transações, mas somente com o processador de
+  demonstração. Falta consultar/gerenciar a assinatura na interface e integrar
+  um adquirente real.
+- Estoque, compras, desperdícios, despesas, relatórios, equipe, convites e
+  permissões comerciais já estão ligados a endpoints persistidos.
+- Painel empresarial com anúncios próprios, publicação/pausa/arquivamento,
+  entrega dos anúncios ativos e contagem de impressões/cliques agora está ligado
+  a dados persistidos. Audiência segmentada, recomendação, moderação e cobrança
+  de anúncios continuam fora deste MVP.
+
+## Lacunas de backend
+
+- Anúncios: falta definir a política comercial de cobrança e moderação. A
+  persistência, autorização, status e métricas básicas já existem na core-api.
+- O fluxo local de recuperação de senha exige credenciais Brevo válidas para
+  efetivamente entregar e-mail; health check não valida esse serviço externo.
+- O checkout atual registra transação pelo processador implementado na API; não
+  há integração de adquirente de cartão/PIX neste checkout web.
+
+## Contratos
+
+As rotas web sob `/web/core` adaptam contratos existentes e são protegidas pelo
+cookie/token da sessão. `/web/domestic/*` continua desativado, pois era estado em
+memória. Veja `frontend-screen-contract.md` para mapeamento de telas e rotas.

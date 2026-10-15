@@ -16,6 +16,7 @@ export interface UserRegisterRequest {
   birthDate: string;
   email: string;
   rawPassword: string;
+  accountType: "DOMESTIC" | "COMMERCIAL" | "BUSINESS";
 }
 
 export interface RefreshRequest {
