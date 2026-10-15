@@ -5,6 +5,7 @@ export type Role = "USER" | "ADMIN";
 export interface UserResponse {
   id: string;
   name: string;
+  profilePictureUrl?: string | null;
   email: string;
   accountType: AccountType;
   birthDate: string;
@@ -18,6 +19,7 @@ export interface UserPutRequest {
 export interface UserPatchRequest {
   name?: string;
   birthDate?: string;
+  profilePictureUrl?: string;
 }
 
 export interface UserChangePasswordRequest {

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { profileService } from "../../../services/index.js";
+import { z } from "zod";
+import { profilePictureService, profileService } from "../../../services/index.js";
 import { authMiddleware } from "../../../middlewares/index.js";
 import {
   changePasswordSchema,
@@ -8,6 +9,7 @@ import {
 } from "../../../schemas/index.js";
 
 const profileRoute = new Hono();
+const profilePictureUploadSchema = z.object({ contentType: z.enum(["image/png", "image/jpeg"]) });
 
 // todas as rotas de perfil exigem autenticacao
 profileRoute.use("*", authMiddleware);
@@ -19,6 +21,14 @@ profileRoute.get("/", async (c) => {
     headers: authHeaders,
   });
   return c.json(result);
+});
+
+// Retorna um upload assinado para o browser enviar a imagem diretamente ao Storage.
+profileRoute.post("/picture-upload", async (c) => {
+  const authHeaders = c.get("authHeaders");
+  const user = await profileService.getProfile({ headers: authHeaders });
+  const request = profilePictureUploadSchema.parse(await c.req.json());
+  return c.json(await profilePictureService.createUpload(user, request.contentType));
 });
 
 // atualizacao completa do perfil
