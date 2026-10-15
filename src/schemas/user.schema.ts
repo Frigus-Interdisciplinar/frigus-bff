@@ -21,6 +21,7 @@ export const userPatchSchema = z.object({
       "Data de nascimento deve seguir o formato dd/MM/yyyy",
     )
     .optional(),
+  profilePictureUrl: z.string().max(2048).url().refine((value) => new URL(value).protocol === "https:", "A foto do perfil deve usar HTTPS").optional(),
 });
 
 // validacao para alteracao de senha
