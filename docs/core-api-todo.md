@@ -11,6 +11,7 @@
 - Lista de compras: listar/criar lista, adicionar/alterar/remover itens, marcar
   compra, sugestões e limpar comprados.
 - Notificações e preferências da conta.
+- Perfil editável e foto persistida no Supabase Storage.
 - BFF expõe grupos, convites, receitas, conversas, anúncios, produtos por grupo,
   despesas comerciais, relatórios mensais e funcionários às telas integradas.
 
@@ -18,13 +19,13 @@
 
 - Detalhe/edição de lote e histórico de movimentações agora usam o inventário
   real. Alertas domésticos derivam dos lotes; descarte usa o contrato BFF.
-- Chat, conversas e envio de mensagens agora usam a API. Algumas ações de perfil
-  ainda mantêm estados locais. Catálogo,
+- Chat, busca de mensagens, reações emoji e anexos privados agora usam a API e
+  Supabase Storage. Catálogo,
   detalhe, sugestões e favoritas de receitas usam a API. Convites familiares
   também usam a API.
-- Tela de assinatura usa a API de transações, mas somente com o processador de
-  demonstração. Falta consultar/gerenciar a assinatura na interface e integrar
-  um adquirente real.
+- Tela de assinatura usa a API de transações, permite acompanhar/cancelar
+  pendências e consultar/gerenciar a assinatura. O processador continua sendo
+  demonstrativo; falta integrar um adquirente real e configurar suas credenciais.
 - Estoque, compras, desperdícios, despesas, relatórios, equipe, convites e
   permissões comerciais já estão ligados a endpoints persistidos.
 - Painel empresarial com anúncios próprios, publicação/pausa/arquivamento,

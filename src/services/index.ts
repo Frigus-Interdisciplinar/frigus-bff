@@ -1,6 +1,7 @@
 export * from "./auth.service.js";
 export * from "./profile.service.js";
 export * from "./profile-picture.service.js";
+export * from "./message-attachment.service.js";
 export * from "./user.service.js";
 export * from "./transaction.service.js";
 export * from "./domestic.service.js";

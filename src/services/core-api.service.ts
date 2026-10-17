@@ -10,6 +10,8 @@ import type {
   CoreStock,
   CoreStockMovement,
   CoreStockProduct,
+  CoreMessage,
+  CoreMessageReaction,
 } from "../types/core-api.type.js";
 
 type Query = Record<string, string | number | boolean | undefined>;
@@ -151,12 +153,22 @@ export class CoreApiService {
     return api.post<CoreConversation>("/conversations/private", body, options(headers));
   }
 
-  listMessages(id: string, headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number) {
-    return api.get<CorePage<unknown>>(`/conversations/${id}/messages`, options(headers, { page, size }));
+  listMessages(id: string, headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number, q?: string) {
+    return api.get<CorePage<CoreMessage>>(`/conversations/${id}/messages`, options(headers, { page, size, q }));
   }
 
-  sendMessage(id: string, body: { content: string; messageType?: string; relatedShoppingListProductId?: number }, headers: ApiBodylessRequestOptions["headers"]) {
-    return api.post<unknown>(`/conversations/${id}/messages`, body, options(headers));
+  sendMessage(id: string, body: { content?: string; messageType?: string; relatedShoppingListProductId?: number; attachments?: Array<{ fileUrl: string; fileName: string; mimeType: string; fileSize: number }> }, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.post<CoreMessage>(`/conversations/${id}/messages`, body, options(headers));
+  }
+
+  listMessageReactions(conversationId: string, messageId: number, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.get<CoreMessageReaction[]>(`/conversations/${conversationId}/messages/${messageId}/reactions`, options(headers));
+  }
+  addMessageReaction(conversationId: string, messageId: number, body: { emoji: string }, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.put<CoreMessageReaction[]>(`/conversations/${conversationId}/messages/${messageId}/reactions`, body, options(headers));
+  }
+  removeMessageReaction(conversationId: string, messageId: number, emoji: string, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.delete<CoreMessageReaction[]>(`/conversations/${conversationId}/messages/${messageId}/reactions`, options(headers, { emoji }));
   }
 
   listPlans() {

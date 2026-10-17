@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { coreApiService } from "../../../services/index.js";
+import { messageAttachmentService, profileService } from "../../../services/index.js";
 import { authMiddleware } from "../../../middlewares/index.js";
 
 const uuid = z.string().uuid("Identificador inválido");
@@ -20,7 +21,9 @@ const movementSchema = z.object({ movementType: z.enum(["IN", "OUT", "ADJUSTMENT
 const discardSchema = z.object({ stockProductId: positiveInteger, quantity: positiveInteger, reason: z.string().max(2000).optional() });
 const groupConversationSchema = z.object({ groupId: uuid, name: z.string().min(1), participantUserIds: z.array(uuid).optional() });
 const privateConversationSchema = z.object({ targetUserId: uuid });
-const messageSchema = z.object({ content: z.string().min(1), messageType: z.string().optional(), relatedShoppingListProductId: positiveInteger.optional() });
+const messageSchema = z.object({ content: z.string().optional(), messageType: z.enum(["TEXT", "IMAGE", "SYSTEM"]).optional(), relatedShoppingListProductId: positiveInteger.optional(), attachments: z.array(z.object({ fileUrl: z.string().min(1), fileName: z.string().min(1).max(255), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), fileSize: positiveInteger })).max(5).optional() }).refine((value) => Boolean(value.content?.trim()) || Boolean(value.attachments?.length), "Envie uma mensagem ou anexo.");
+const attachmentUploadSchema = z.object({ fileName: z.string().min(1).max(255), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), fileSize: positiveInteger.max(10 * 1024 * 1024) });
+const reactionSchema = z.object({ emoji: z.enum(["👍", "❤️", "😂", "😮", "😢", "🙏"]) });
 const groupProductSchema = z.object({ name: z.string().min(1).max(255), category: z.enum(["FRUIT", "VEGETABLE", "DAIRY", "GRAIN", "MEAT", "BEVERAGE", "CLEANING", "PERSONAL_HYGIENE"]), storagePlace: z.enum(["FRIDGE", "FREEZER", "PANTRY", "CABINET", "SHELF"]), unitPrice: z.number().positive(), unitOfMeasure: z.enum(["KILOGRAM", "GRAM", "LITER", "MILLILITER", "UNIT", "DOZEN", "PACKAGE"]), brand: z.string().max(120).optional() });
 const shoppingListSchema = z.object({ stockId: positiveInteger, name: z.string().min(1).max(255), date: z.string().date().optional() });
 const shoppingItemSchema = z.object({ productId: positiveInteger, quantity: positiveInteger });
@@ -124,7 +127,11 @@ coreRoute.get("/chat/conversations", async (c) => c.json(await coreApiService.li
 coreRoute.get("/chat/conversations/:id", async (c) => c.json(await coreApiService.getConversation(uuid.parse(c.req.param("id")), c.get("authHeaders"))));
 coreRoute.post("/chat/conversations/group", async (c) => c.json(await coreApiService.createGroupConversation(groupConversationSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 coreRoute.post("/chat/conversations/private", async (c) => c.json(await coreApiService.createPrivateConversation(privateConversationSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
-coreRoute.get("/chat/conversations/:id/messages", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listMessages(uuid.parse(c.req.param("id")), c.get("authHeaders"), page, size)); });
-coreRoute.post("/chat/conversations/:id/messages", async (c) => c.json(await coreApiService.sendMessage(uuid.parse(c.req.param("id")), messageSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
+coreRoute.get("/chat/conversations/:id/messages", async (c) => { const { page, size } = paging(c); const result = await coreApiService.listMessages(uuid.parse(c.req.param("id")), c.get("authHeaders"), page, size, c.req.query("q")); return c.json(await messageAttachmentService.signPage(result)); });
+coreRoute.post("/chat/conversations/:id/messages", async (c) => { const result = await coreApiService.sendMessage(uuid.parse(c.req.param("id")), messageSchema.parse(await c.req.json()), c.get("authHeaders")); return c.json(await messageAttachmentService.signMessageAttachments(result), 201); });
+coreRoute.post("/chat/conversations/:id/attachments/upload-ticket", async (c) => { const id = uuid.parse(c.req.param("id")); const headers = c.get("authHeaders"); await coreApiService.getConversation(id, headers); const user = await profileService.getProfile({ headers }); const input = attachmentUploadSchema.parse(await c.req.json()); return c.json(await messageAttachmentService.createUpload(user.id, id, input.fileName, input.mimeType)); });
+coreRoute.get("/chat/conversations/:id/messages/:messageId/reactions", async (c) => c.json(await coreApiService.listMessageReactions(uuid.parse(c.req.param("id")), positiveInteger.parse(c.req.param("messageId")), c.get("authHeaders"))));
+coreRoute.put("/chat/conversations/:id/messages/:messageId/reactions", async (c) => c.json(await coreApiService.addMessageReaction(uuid.parse(c.req.param("id")), positiveInteger.parse(c.req.param("messageId")), reactionSchema.parse(await c.req.json()), c.get("authHeaders"))));
+coreRoute.delete("/chat/conversations/:id/messages/:messageId/reactions", async (c) => c.json(await coreApiService.removeMessageReaction(uuid.parse(c.req.param("id")), positiveInteger.parse(c.req.param("messageId")), reactionSchema.parse({ emoji: c.req.query("emoji") }).emoji, c.get("authHeaders"))));
 
 export { coreRoute };

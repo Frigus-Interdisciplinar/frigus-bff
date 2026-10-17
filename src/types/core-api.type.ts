@@ -78,9 +78,21 @@ export interface CoreMessage {
   senderId: string;
   senderName: string;
   messageType?: string;
-  content: string;
+  content: string | null;
+  createdAt: string;
+  attachments?: CoreMessageAttachment[];
+}
+
+export interface CoreMessageAttachment {
+  id: number;
+  fileUrl: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
   createdAt: string;
 }
+
+export interface CoreMessageReaction { userId: string; emoji: string }
 
 export type CoreAdvertisementStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
 
