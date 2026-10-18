@@ -21,6 +21,11 @@ refresh é persistente ou termina ao fechar o navegador; o BFF mantém essa esco
 ao renovar tokens. Em produção, configure `WEB_ORIGINS` com as origens exatas do
 web e use HTTPS.
 
+Configure `CORS_ALLOWED_ORIGINS` no Core API com a mesma lista de origens web
+permitidas. O Core API recebe tokens somente por `Authorization: Bearer`; os
+cookies de sessão ficam restritos ao BFF. O BFF exige um cabeçalho `Origin`
+permitido nas requisições web que alteram dados.
+
 ## Contratos
 
 As rotas web ficam sob `/web`. Veja `docs/frontend-screen-contract.md` e
