@@ -12,13 +12,19 @@ import type {
   CoreStockProduct,
   CoreMessage,
   CoreMessageReaction,
+  CoreNotification,
+  CoreRecipe,
+  CoreRecipeAvailability,
+  CoreReceipt,
+  CoreReceiptConfirmation,
 } from "../types/core-api.type.js";
 
 type Query = Record<string, string | number | boolean | undefined>;
 
-const options = (headers: ApiBodylessRequestOptions["headers"], params?: Query) => ({
+const options = (headers: ApiBodylessRequestOptions["headers"], params?: Query, timeout?: number) => ({
   headers,
   params,
+  timeout,
 });
 
 /**
@@ -89,7 +95,7 @@ export class CoreApiService {
     return api.post<CoreStock>("/stocks", body, options(headers));
   }
 
-  createGroupProduct(groupId: string, body: { name: string; category: string; storagePlace: string; unitPrice: number; unitOfMeasure: string; brand?: string }, headers: ApiBodylessRequestOptions["headers"]) {
+  createGroupProduct(groupId: string, body: { name: string; category: string; storagePlace: string; unitPrice: number; unitOfMeasure: string; brand?: string; imageUrl?: string }, headers: ApiBodylessRequestOptions["headers"]) {
     return api.post<CoreProduct>(`/groups/${groupId}/products`, body, options(headers));
   }
 
@@ -101,19 +107,35 @@ export class CoreApiService {
     return api.put<CoreStock>(`/stocks/${id}`, body, options(headers));
   }
 
-  listStockProducts(stockId: string, headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number) {
-    return api.get<CorePage<CoreStockProduct>>("/stock-products", options(headers, { stockId, page, size }));
+  listStockProducts(stockId: string, headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number, category?: string, storagePlace?: string, q?: string) {
+    return api.get<CorePage<CoreStockProduct>>("/stock-products", options(headers, { stockId, page, size, category, storagePlace, q }));
   }
 
   getStockProduct(id: string, headers: ApiBodylessRequestOptions["headers"]) {
     return api.get<CoreStockProduct>(`/stock-products/${id}`, options(headers));
   }
 
-  createStockProduct(body: { productId: number; stockId: number; quantity: number; minimalQuantity?: number; expireDate: string }, headers: ApiBodylessRequestOptions["headers"]) {
+  deleteStockProduct(id: string, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.delete<void>(`/stock-products/${id}`, options(headers));
+  }
+
+  createStockProduct(body: { productId: number; stockId: number; quantity: number; minimalQuantity?: number; expireDate: string; batch?: string }, headers: ApiBodylessRequestOptions["headers"]) {
     return api.post<CoreStockProduct>("/stock-products", body, options(headers));
   }
 
-  updateStockProduct(id: string, body: { minimalQuantity?: number; expireDate: string }, headers: ApiBodylessRequestOptions["headers"]) {
+  scanReceipt(body: { stockId: number; qrPayload: string }, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.post<CoreReceipt>("/receipts/scan", body, options(headers, undefined, 120_000));
+  }
+
+  getReceipt(id: string, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.get<CoreReceipt>(`/receipts/${id}`, options(headers));
+  }
+
+  confirmReceipt(id: string, body: unknown, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.post<CoreReceiptConfirmation>(`/receipts/${id}/confirm`, body, options(headers));
+  }
+
+  updateStockProduct(id: string, body: { name?: string; category?: string; storagePlace?: string; quantity?: number; initialQuantity?: number; minimalQuantity?: number; expireDate?: string; batch?: string }, headers: ApiBodylessRequestOptions["headers"]) {
     return api.put<CoreStockProduct>(`/stock-products/${id}`, body, options(headers));
   }
 
@@ -121,7 +143,7 @@ export class CoreApiService {
     return api.get<CorePage<CoreStockMovement>>(`/stock-products/${stockProductId}/movements`, options(headers, { page, size }));
   }
 
-  createMovement(stockProductId: string, body: { movementType: string; quantity: number }, headers: ApiBodylessRequestOptions["headers"]) {
+  createMovement(stockProductId: string, body: { movementType: string; quantity: number; observation?: string }, headers: ApiBodylessRequestOptions["headers"]) {
     return api.post<CoreStockMovement>(`/stock-products/${stockProductId}/movements`, body, options(headers));
   }
 
@@ -175,7 +197,7 @@ export class CoreApiService {
     return api.get<unknown[]>("/plans/active");
   }
 
-  checkout(body: { planCode: string; paymentMethod?: "PIX" | "BOLETO" | "CREDIT_CARD"; fakeCardLast4?: string; fakePixKey?: string }, headers: ApiBodylessRequestOptions["headers"]) {
+  checkout(body: { planCode: string; paymentMethod?: "PIX" | "BOLETO" | "CREDIT_CARD" | "DEBIT_CARD"; fakeCardLast4?: string; fakePixKey?: string }, headers: ApiBodylessRequestOptions["headers"]) {
     return api.post<unknown>("/transactions/checkout", body, options(headers));
   }
 
@@ -209,13 +231,17 @@ export class CoreApiService {
   completeShoppingList(id: string, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>(`/shopping-lists/${id}/complete`, body, options(headers)); }
   listRecipes(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number, name?: string) { return api.get<CorePage<unknown>>("/recipes", options(headers, { page, size, name })); }
   listFavoriteRecipes(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number) { return api.get<CorePage<unknown>>("/recipes/favorites", options(headers, { page, size })); }
-  getRecipe(id: number, headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown>(`/recipes/${id}`, options(headers)); }
+  getRecipe(id: number, headers: ApiBodylessRequestOptions["headers"]) { return api.get<CoreRecipe>(`/recipes/${id}`, options(headers)); }
+  getRecipeAvailability(id: number, headers: ApiBodylessRequestOptions["headers"], stockId?: number) { return api.get<CoreRecipeAvailability[]>(`/recipes/${id}/availability`, options(headers, { stockId })); }
   recipeSuggestions(headers: ApiBodylessRequestOptions["headers"], stockId?: number, limit?: number) { return api.get<unknown[]>("/recipes/suggestions", options(headers, { stockId, limit })); }
   favoriteRecipe(id: number, favorite: boolean, headers: ApiBodylessRequestOptions["headers"]) { return favorite ? api.put<void>(`/recipes/${id}/favorite`, undefined, options(headers)) : api.delete<void>(`/recipes/${id}/favorite`, options(headers)); }
-  listNotifications(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number, unread = false) { return api.get<CorePage<unknown>>(unread ? "/notifications/unread" : "/notifications", options(headers, { page, size })); }
+  chatWithRecipeAi(body: { message: string; stockId: number; sessionId?: string }, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>("/ai/recipes/chat", body, options(headers, undefined, 120_000)); }
+  recipeAiSuggestions(stockId: number, headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown[]>(`/ai/recipes/suggestions/stock/${stockId}`, options(headers)); }
+  listNotifications(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number, unread = false) { return api.get<CorePage<CoreNotification>>(unread ? "/notifications/unread" : "/notifications", options(headers, { page, size })); }
   unreadCount(headers: ApiBodylessRequestOptions["headers"]) { return api.get<{ count: number }>("/notifications/unread-count", options(headers)); }
-  markNotificationRead(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.patch<unknown>(`/notifications/${id}/read`, undefined, options(headers)); }
+  markNotificationRead(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.patch<CoreNotification>(`/notifications/${id}/read`, undefined, options(headers)); }
   markAllNotificationsRead(headers: ApiBodylessRequestOptions["headers"]) { return api.patch<void>("/notifications/read-all", undefined, options(headers)); }
+  clearNotifications(headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>("/notifications", options(headers)); }
   getPreferences(headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown>("/profile/preferences", options(headers)); }
   updatePreferences(body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.put<unknown>("/profile/preferences", body, options(headers)); }
   listInvitations(groupId: string, headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown[]>(`/groups/${groupId}/invitations`, options(headers)); }

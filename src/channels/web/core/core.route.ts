@@ -12,40 +12,7 @@ const paging = (c: { req: { query(name: string): string | undefined } }) => ({
   size: c.req.query("size") === undefined ? undefined : positiveInteger.parse(c.req.query("size")),
 });
 
-const groupCreateSchema = z.object({ name: z.string().min(1), bannerPicture: z.string().url().optional() });
-const groupUpdateSchema = groupCreateSchema.partial();
-const stockSchema = z.object({ groupId: uuid, name: z.string().min(1) });
-const stockProductCreateSchema = z.object({ productId: positiveInteger, stockId: positiveInteger, quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date() });
-const stockProductUpdateSchema = z.object({ minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date() });
-const movementSchema = z.object({ movementType: z.enum(["IN", "OUT", "ADJUSTMENT"]), quantity: nonNegativeInteger });
-const discardSchema = z.object({ stockProductId: positiveInteger, quantity: positiveInteger, reason: z.string().max(2000).optional() });
-const groupConversationSchema = z.object({ groupId: uuid, name: z.string().min(1), participantUserIds: z.array(uuid).optional() });
-const privateConversationSchema = z.object({ targetUserId: uuid });
-const messageSchema = z.object({ content: z.string().optional(), messageType: z.enum(["TEXT", "IMAGE", "SYSTEM"]).optional(), relatedShoppingListProductId: positiveInteger.optional(), attachments: z.array(z.object({ fileUrl: z.string().min(1), fileName: z.string().min(1).max(255), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), fileSize: positiveInteger })).max(5).optional() }).refine((value) => Boolean(value.content?.trim()) || Boolean(value.attachments?.length), "Envie uma mensagem ou anexo.");
-const attachmentUploadSchema = z.object({ fileName: z.string().min(1).max(255), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), fileSize: positiveInteger.max(10 * 1024 * 1024) });
-const reactionSchema = z.object({ emoji: z.enum(["👍", "❤️", "😂", "😮", "😢", "🙏"]) });
-const groupProductSchema = z.object({ name: z.string().min(1).max(255), category: z.enum(["FRUIT", "VEGETABLE", "DAIRY", "GRAIN", "MEAT", "BEVERAGE", "CLEANING", "PERSONAL_HYGIENE"]), storagePlace: z.enum(["FRIDGE", "FREEZER", "PANTRY", "CABINET", "SHELF"]), unitPrice: z.number().positive(), unitOfMeasure: z.enum(["KILOGRAM", "GRAM", "LITER", "MILLILITER", "UNIT", "DOZEN", "PACKAGE"]), brand: z.string().max(120).optional() });
-const shoppingListSchema = z.object({ stockId: positiveInteger, name: z.string().min(1).max(255), date: z.string().date().optional() });
-const shoppingItemSchema = z.object({ productId: positiveInteger, quantity: positiveInteger });
-const shoppingItemUpdateSchema = z.object({ quantity: positiveInteger.optional(), status: z.enum(["PENDING", "PURCHASE", "PURCHASED", "REMOVED"]).optional(), purchasedUnitPrice: z.number().nonnegative().optional() });
-const completeShoppingSchema = z.object({ supplier: z.string().max(255).optional() });
-const invitationSchema = z.object({ email: z.string().email(), name: z.string().max(255).optional(), memberRole: z.enum(["OWNER", "EDITOR", "VIEWER"]) });
-const preferencesSchema = z.object({ expirationAlertsEnabled: z.boolean(), lowStockAlertsEnabled: z.boolean(), shoppingRemindersEnabled: z.boolean(), weeklySummaryEnabled: z.boolean(), theme: z.enum(["LIGHT", "DARK", "SYSTEM"]) });
-const expenseSchema = z.object({ description: z.string().min(1).max(255), category: z.string().min(1).max(120), amount: z.number().positive(), expenseDate: z.string().date(), supplier: z.string().max(255).optional() });
-const checkoutSchema = z.object({ planCode: z.string().min(1).max(20), paymentMethod: z.enum(["PIX", "BOLETO", "CREDIT_CARD"]).optional(), fakeCardLast4: z.string().regex(/^\d{4}$/).optional(), fakePixKey: z.string().min(10).max(150).optional() });
-const httpsUrl = z.string().max(2048).url().refine((value) => new URL(value).protocol === "https:", "Use uma URL HTTPS pública");
-const advertisementSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  productName: z.string().trim().min(1).max(160),
-  category: z.string().trim().min(1).max(80),
-  description: z.string().trim().min(1).max(2000),
-  imageUrl: httpsUrl,
-  destinationUrl: httpsUrl.optional().or(z.literal("")),
-  price: z.number().nonnegative().optional(),
-  startDate: z.string().date().optional(),
-  endDate: z.string().date().optional(),
-});
-const advertisementStatusSchema = z.object({ status: z.enum(["ACTIVE", "PAUSED", "ARCHIVED"]) });
+import { groupCreateSchema, groupUpdateSchema, stockSchema, stockProductCreateSchema, stockProductUpdateSchema, movementSchema, discardSchema, groupConversationSchema, privateConversationSchema, messageSchema, attachmentUploadSchema, reactionSchema, groupProductSchema, shoppingListSchema, shoppingItemSchema, shoppingItemUpdateSchema, completeShoppingSchema, invitationSchema, preferencesSchema, expenseSchema, checkoutSchema, aiRecipeChatSchema, httpsUrl, advertisementSchema, advertisementStatusSchema } from "../../../schemas/core-api.schema.js";
 
 /** Contracts backed by existing core-api endpoints. */
 const coreRoute = new Hono();
@@ -75,9 +42,9 @@ coreRoute.post("/groups/:id/products", async (c) => c.json(await coreApiService.
 
 coreRoute.get("/shopping-lists", async (c) => { const { page, size } = paging(c); const stockId = positiveInteger.parse(c.req.query("stockId")); return c.json(await coreApiService.listShoppingLists(stockId, c.get("authHeaders"), page, size, c.req.query("status"))); });
 coreRoute.post("/shopping-lists", async (c) => c.json(await coreApiService.createShoppingList(shoppingListSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
+coreRoute.get("/shopping-lists/suggestions", async (c) => c.json(await coreApiService.shoppingSuggestions(positiveInteger.parse(c.req.query("stockId")), c.get("authHeaders"))));
 coreRoute.get("/shopping-lists/:id", async (c) => c.json(await coreApiService.getShoppingList(uuid.parse(c.req.param("id")), c.get("authHeaders"))));
 coreRoute.delete("/shopping-lists/:id", async (c) => { await coreApiService.cancelShoppingList(uuid.parse(c.req.param("id")), c.get("authHeaders")); return c.body(null, 204); });
-coreRoute.get("/shopping-lists/suggestions", async (c) => c.json(await coreApiService.shoppingSuggestions(positiveInteger.parse(c.req.query("stockId")), c.get("authHeaders"))));
 coreRoute.post("/shopping-lists/:id/items", async (c) => c.json(await coreApiService.addShoppingItem(uuid.parse(c.req.param("id")), shoppingItemSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 coreRoute.patch("/shopping-lists/:id/items/:itemId", async (c) => c.json(await coreApiService.updateShoppingItem(uuid.parse(c.req.param("id")), positiveInteger.parse(c.req.param("itemId")), shoppingItemUpdateSchema.parse(await c.req.json()), c.get("authHeaders"))));
 coreRoute.delete("/shopping-lists/:id/items/:itemId", async (c) => { await coreApiService.deleteShoppingItem(uuid.parse(c.req.param("id")), positiveInteger.parse(c.req.param("itemId")), c.get("authHeaders")); return c.body(null, 204); });
@@ -87,6 +54,8 @@ coreRoute.post("/shopping-lists/:id/complete", async (c) => c.json(await coreApi
 coreRoute.get("/recipes", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listRecipes(c.get("authHeaders"), page, size, c.req.query("name"))); });
 coreRoute.get("/recipes/favorites", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listFavoriteRecipes(c.get("authHeaders"), page, size)); });
 coreRoute.get("/recipes/suggestions", async (c) => c.json(await coreApiService.recipeSuggestions(c.get("authHeaders"), c.req.query("stockId") ? positiveInteger.parse(c.req.query("stockId")) : undefined, c.req.query("limit") ? positiveInteger.parse(c.req.query("limit")) : undefined)));
+coreRoute.post("/ai/recipes/chat", async (c) => c.json(await coreApiService.chatWithRecipeAi(aiRecipeChatSchema.parse(await c.req.json()), c.get("authHeaders"))));
+coreRoute.get("/ai/recipes/suggestions/:stockId", async (c) => c.json(await coreApiService.recipeAiSuggestions(positiveInteger.parse(c.req.param("stockId")), c.get("authHeaders"))));
 coreRoute.get("/recipes/:id", async (c) => c.json(await coreApiService.getRecipe(positiveInteger.parse(c.req.param("id")), c.get("authHeaders"))));
 coreRoute.put("/recipes/:id/favorite", async (c) => { await coreApiService.favoriteRecipe(positiveInteger.parse(c.req.param("id")), true, c.get("authHeaders")); return c.body(null, 204); });
 coreRoute.delete("/recipes/:id/favorite", async (c) => { await coreApiService.favoriteRecipe(positiveInteger.parse(c.req.param("id")), false, c.get("authHeaders")); return c.body(null, 204); });
@@ -96,6 +65,7 @@ coreRoute.get("/notifications/unread", async (c) => { const { page, size } = pag
 coreRoute.get("/notifications/unread-count", async (c) => c.json(await coreApiService.unreadCount(c.get("authHeaders"))));
 coreRoute.patch("/notifications/:id/read", async (c) => c.json(await coreApiService.markNotificationRead(uuid.parse(c.req.param("id")), c.get("authHeaders"))));
 coreRoute.patch("/notifications/read-all", async (c) => { await coreApiService.markAllNotificationsRead(c.get("authHeaders")); return c.body(null, 204); });
+coreRoute.delete("/notifications", async (c) => { await coreApiService.clearNotifications(c.get("authHeaders")); return c.body(null, 204); });
 coreRoute.get("/preferences", async (c) => c.json(await coreApiService.getPreferences(c.get("authHeaders"))));
 coreRoute.put("/preferences", async (c) => c.json(await coreApiService.updatePreferences(preferencesSchema.parse(await c.req.json()), c.get("authHeaders"))));
 
@@ -117,6 +87,7 @@ coreRoute.get("/inventory/stocks/:stockId/products", async (c) => { const { page
 coreRoute.post("/inventory/stock-products", async (c) => c.json(await coreApiService.createStockProduct(stockProductCreateSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 coreRoute.get("/inventory/stock-products/:id", async (c) => c.json(await coreApiService.getStockProduct(String(positiveInteger.parse(c.req.param("id"))), c.get("authHeaders"))));
 coreRoute.put("/inventory/stock-products/:id", async (c) => c.json(await coreApiService.updateStockProduct(String(positiveInteger.parse(c.req.param("id"))), stockProductUpdateSchema.parse(await c.req.json()), c.get("authHeaders"))));
+coreRoute.delete("/inventory/stock-products/:id", async (c) => { await coreApiService.deleteStockProduct(String(positiveInteger.parse(c.req.param("id"))), c.get("authHeaders")); return c.body(null, 204); });
 coreRoute.get("/inventory/stock-products/:id/movements", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listMovements(String(positiveInteger.parse(c.req.param("id"))), c.get("authHeaders"), page, size)); });
 coreRoute.post("/inventory/stock-products/:id/movements", async (c) => c.json(await coreApiService.createMovement(String(positiveInteger.parse(c.req.param("id"))), movementSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 

@@ -14,7 +14,7 @@ export type TransactionStatus =
 
 export interface CheckoutRequest {
   planCode: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   fakeCardLast4?: string;
   fakePixKey?: string;
 }
