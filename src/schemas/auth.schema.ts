@@ -9,7 +9,7 @@ export const loginSchema = z.object({
 
 // validacao de registro de novo usuario
 export const registerSchema = z.object({
-  name: z.string().min(1, "O nome e obrigatorio"),
+  name: z.string().trim().min(1, "O nome e obrigatorio"),
   birthDate: z
     .string()
     .regex(
