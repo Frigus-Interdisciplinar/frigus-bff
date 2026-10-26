@@ -28,5 +28,13 @@ permitido nas requisições web que alteram dados.
 
 ## Contratos
 
+O documento completo para o time mobile está em
+[Contratos da API Mobile](docs/mobile-api-contracts.md): todos os endpoints
+montados em `/mobile`, aliases das telas, parâmetros, JSONs de entrada/saída,
+autenticação, campos opcionais e lacunas do canal.
+
 As rotas web ficam sob `/web`. Veja `docs/frontend-screen-contract.md` e
 `docs/core-api-todo.md` para os contratos já ligados e as próximas integrações.
+O mapeamento das telas Mobile de estoque, receitas e notificações está em
+`docs/mobile-screen-contract.md`; lacunas da core-api para essas telas estão em
+`TODO.md`.
