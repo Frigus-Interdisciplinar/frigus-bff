@@ -6,10 +6,11 @@ export class ConflictException extends AppException {
     message: string = "Conflito",
     displayMessage = "Não foi possível processar a requisição",
     fields?: FieldError[],
+    code = "CONFLICT",
   ) {
     super({
       status: 409,
-      code: "CONFLICT",
+      code,
       message,
       displayMessage,
       fields,

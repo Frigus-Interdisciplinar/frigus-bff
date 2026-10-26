@@ -3,9 +3,12 @@ import type {
   ApiBodylessRequestOptions,
   LoginRequest,
   LoginResponse,
+  PasswordRecoveryRequest,
   RefreshRequest,
+  ResetPasswordRequest,
   UserRegisterRequest,
   UserResponse,
+  VerifyPasswordRecoveryCodeRequest,
 } from "../types/index.js";
 
 // servico de comunicacao com os endpoints de autenticacao da core-api
@@ -46,6 +49,25 @@ export class AuthService {
   ): Promise<void> {
     const payload: RefreshRequest = refreshToken ? { refreshToken } : {};
     return api.post<void, RefreshRequest>("/auth/logout", payload, options);
+  }
+
+  async requestPasswordRecovery(
+    body: PasswordRecoveryRequest,
+  ): Promise<void> {
+    return api.post<void, PasswordRecoveryRequest>("/auth/forgot-password", body);
+  }
+
+  async resetPassword(body: ResetPasswordRequest): Promise<void> {
+    return api.post<void, ResetPasswordRequest>("/auth/reset-password", body);
+  }
+
+  async verifyPasswordRecoveryCode(
+    body: VerifyPasswordRecoveryCodeRequest,
+  ): Promise<void> {
+    return api.post<void, VerifyPasswordRecoveryCodeRequest>(
+      "/auth/verify-reset-code",
+      body,
+    );
   }
 }
 

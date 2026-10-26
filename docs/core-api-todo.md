@@ -1,27 +1,49 @@
-# To-do — capacidades necessárias na core-api
+# Estado de integração web, BFF e core-api
 
-Não foram feitas mudanças na pasta `core-api`. Estes itens vieram diretamente das telas e não possuem contrato suficiente na API principal.
+## Fluxos ligados
 
-## Bloqueadores funcionais
+- Cadastro, seleção de conta (`DOMESTIC`, `COMMERCIAL`, `BUSINESS`), login,
+  sessão por cookie HttpOnly, renovação, logout e recuperação de senha.
+- A opção “Manter conectado” controla a persistência do cookie de refresh e é
+  preservada durante a renovação da sessão.
+- Provisionamento do primeiro grupo/estoque para contas novas e inventário
+  doméstico: contexto, resumo, produtos próprios, lotes e movimentações.
+- Lista de compras: listar/criar lista, adicionar/alterar/remover itens, marcar
+  compra, sugestões e limpar comprados.
+- Notificações e preferências da conta.
+- Perfil editável e foto persistida no Supabase Storage.
+- BFF expõe grupos, convites, receitas, conversas, anúncios, produtos por grupo,
+  despesas comerciais, relatórios mensais e funcionários às telas integradas.
 
-- Dashboard doméstico: resumo por usuário/grupo, itens próximos da validade, consumo semanal, distribuição por local e compras pendentes. Não existe `GET /stocks/my-summary` na core-api; a antiga tentativa do BFF apontava para um endpoint inexistente.
-- Lista de compras: as entidades existem no banco, mas não há controller/DTO/service público para criar, editar, marcar comprado, limpar concluídos ou sugerir itens.
-- Alertas e notificações: não há endpoint persistido para alertas de validade/estoque baixo, caixa de notificações, leitura ou preferências.
-- Configurações domésticas: faltam preferências de lembrete, resumo semanal e tema.
-- Receitas: as entidades existem e há IA por estoque, mas não há CRUD/listagem/detalhe de receitas, favoritos, ingredientes disponíveis nem sugestões gerais para as telas.
-- Recuperação de senha: a tela pede envio de e-mail/link de redefinição; a core-api só tem troca de senha para usuário autenticado e reset administrativo.
+## Limites e itens ainda fora da integração
 
-## Lacunas de contrato para as telas existentes
+- Detalhe/edição de lote e histórico de movimentações agora usam o inventário
+  real. Alertas domésticos derivam dos lotes; descarte usa o contrato BFF.
+- Chat, busca de mensagens, reações emoji e anexos privados agora usam a API e
+  Supabase Storage. Catálogo,
+  detalhe, sugestões e favoritas de receitas usam a API. Convites familiares
+  também usam a API.
+- Tela de assinatura usa a API de transações, permite acompanhar/cancelar
+  pendências e consultar/gerenciar a assinatura. O processador continua sendo
+  demonstrativo; falta integrar um adquirente real e configurar suas credenciais.
+- Estoque, compras, desperdícios, despesas, relatórios, equipe, convites e
+  permissões comerciais já estão ligados a endpoints persistidos.
+- Painel empresarial com anúncios próprios, publicação/pausa/arquivamento,
+  entrega dos anúncios ativos e contagem de impressões/cliques agora está ligado
+  a dados persistidos. Audiência segmentada, recomendação, moderação e cobrança
+  de anúncios continuam fora deste MVP.
 
-- Estoque: `StockProductResponseDto` traz apenas `productId`; para renderizar nome, unidade, local e preço a tela precisa de produto expandido ou um endpoint de consulta em lote. Não há imagem, marca, lote, nem operação de remoção de estoque/produto.
-- Consumo: a tela doméstica pede consumo parcial com observação. A core-api oferece movimentação (`IN`, `OUT`, `ADJUSTMENT`), mas não aceita observação; `DiscardCreateRequestDto` não recebe quantidade. Definir qual dos dois representa consumo e completar o contrato.
-- Família: o convite visual usa nome, e-mail e permissão de edição/visualização. A core-api aceita somente `userId` de uma conta já existente e não possui papéis/permissões por membro nem convite por e-mail.
-- Chat: há REST e WebSocket, mas ainda faltam anexos/reações pesquisáveis que a interface sugere; confirmar escopo antes de criar.
-- Comercial: despesas, relatório mensal/exportação, compras concluídas com total/fornecedor e gestão de funcionários não têm endpoints/modelos correspondentes.
-- Planos: a tela apresenta benefícios e seleção; há catálogo e checkout, mas é preciso definir a operação que vincula a escolha ao fluxo de pagamento e o formato de apresentação dos benefícios.
+## Lacunas de backend
 
-## Decisões necessárias
+- Anúncios: falta definir a política comercial de cobrança e moderação. A
+  persistência, autorização, status e métricas básicas já existem na core-api.
+- O fluxo local de recuperação de senha exige credenciais Brevo válidas para
+  efetivamente entregar e-mail; health check não valida esse serviço externo.
+- O checkout atual registra transação pelo processador implementado na API; não
+  há integração de adquirente de cartão/PIX neste checkout web.
 
-1. Definir o grupo/estoque ativo do usuário para evitar enviar `groupId` em toda chamada de estoque.
-2. Definir se produtos do catálogo podem ser criados/geridos por usuário comercial, já que hoje o CRUD é administrativo.
-3. Priorizar lista de compras, alertas e resumo de estoque para liberar o fluxo doméstico de ponta a ponta.
+## Contratos
+
+As rotas web sob `/web/core` adaptam contratos existentes e são protegidas pelo
+cookie/token da sessão. `/web/domestic/*` continua desativado, pois era estado em
+memória. Veja `frontend-screen-contract.md` para mapeamento de telas e rotas.

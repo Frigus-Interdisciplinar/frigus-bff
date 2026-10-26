@@ -155,6 +155,14 @@ async function runTests() {
     GatewayTimeoutException,
   );
 
+  for (const status of [400, 401, 403, 404, 409, 422, 500, 502, 503, 504]) {
+    assert.throws(
+      () => handleAxiosError(createMockAxiosError(status)),
+      (error: unknown) => error instanceof AppException && error.code === `CODE_${status}`,
+      `Core API error code for HTTP ${status} should be preserved`,
+    );
+  }
+
   // 4. Test Network & Timeout error mapping
   console.log("▶ Testing network & timeout error mappings...");
   assert.throws(

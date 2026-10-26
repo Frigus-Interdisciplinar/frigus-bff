@@ -7,16 +7,14 @@ declare module "hono" {
     token: string;
     authHeaders: {
       Authorization: string;
-      Cookie?: string;
     };
   }
 }
 
-// middleware para extrair e validar a presenca do token jwt via header ou cookie
+// Extract the web session cookie and forward only its access token to the Core API.
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authHeader = c.req.header("Authorization");
   const cookieToken = getCookie(c, "accessToken");
-  const rawCookie = c.req.header("Cookie");
 
   let token: string | undefined;
 
@@ -37,7 +35,6 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   c.set("token", token);
   c.set("authHeaders", {
     Authorization: `Bearer ${token}`,
-    ...(rawCookie ? { Cookie: rawCookie } : {}),
   });
 
   await next();

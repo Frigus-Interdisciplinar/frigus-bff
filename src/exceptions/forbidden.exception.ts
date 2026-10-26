@@ -4,10 +4,11 @@ export class ForbiddenException extends AppException {
   constructor(
     message: string = "Proibido",
     displayMessage = "Não foi possível autorizar o acesso",
+    code = "FORBIDDEN",
   ) {
     super({
       status: 403,
-      code: "FORBIDDEN",
+      code,
       message,
       displayMessage,
     });

@@ -30,10 +30,12 @@ export const errorHandler: ErrorHandler = (err, c) => {
   }
 
   // Generic or unexpected error
-  console.error("[ErrorHandler] Unhandled exception:", err);
+  console.error("[ErrorHandler] Unhandled exception", {
+    name: err instanceof Error ? err.name : "UnknownError",
+  });
 
   const internalError = new InternalServerErrorException(
-    err instanceof Error ? err.message : "Erro interno do servidor",
+    "Erro interno do servidor",
     "Ocorreu um erro inesperado. Tente novamente mais tarde.",
   );
 

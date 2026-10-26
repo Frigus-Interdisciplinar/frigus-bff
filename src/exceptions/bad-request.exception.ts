@@ -6,10 +6,11 @@ export class BadRequestException extends AppException {
     message: string = "Requisição inválida",
     displayMessage = "Não foi possível processar a requisição",
     fields?: FieldError[],
+    code = "BAD_REQUEST",
   ) {
     super({
       status: 400,
-      code: "BAD_REQUEST",
+      code,
       message,
       displayMessage,
       fields,

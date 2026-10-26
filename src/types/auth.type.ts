@@ -16,8 +16,21 @@ export interface UserRegisterRequest {
   birthDate: string;
   email: string;
   rawPassword: string;
+  accountType: "DOMESTIC" | "COMMERCIAL" | "BUSINESS";
 }
 
 export interface RefreshRequest {
   refreshToken?: string;
+}
+
+export interface PasswordRecoveryRequest {
+  email: string;
+}
+
+export interface VerifyPasswordRecoveryCodeRequest extends PasswordRecoveryRequest {
+  code: string;
+}
+
+export interface ResetPasswordRequest extends VerifyPasswordRecoveryCodeRequest {
+  newPassword: string;
 }
