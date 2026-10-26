@@ -6,10 +6,11 @@ export class UnprocessableEntityException extends AppException {
     message = "Entidade improcessável",
     displayMessage = "Não foi possível processar as instruções enviadas",
     fields?: FieldError[],
+    code = "UNPROCESSABLE_ENTITY",
   ) {
     super({
       status: 422,
-      code: "UNPROCESSABLE_ENTITY",
+      code,
       message,
       displayMessage,
       fields,

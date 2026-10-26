@@ -46,25 +46,25 @@ export function handleAxiosError(error: unknown): never {
 
       switch (status) {
         case 400:
-          throw new BadRequestException(message, displayMessage, fields);
+          throw new BadRequestException(message, displayMessage, fields, code);
         case 401:
-          throw new UnauthorizedException(message, displayMessage);
+          throw new UnauthorizedException(message, displayMessage, code);
         case 403:
-          throw new ForbiddenException(message, displayMessage);
+          throw new ForbiddenException(message, displayMessage, code);
         case 404:
-          throw new NotFoundException(message, displayMessage);
+          throw new NotFoundException(message, displayMessage, code);
         case 409:
-          throw new ConflictException(message, displayMessage, fields);
+          throw new ConflictException(message, displayMessage, fields, code);
         case 422:
-          throw new UnprocessableEntityException(message, displayMessage, fields);
+          throw new UnprocessableEntityException(message, displayMessage, fields, code);
         case 500:
-          throw new InternalServerErrorException(message, displayMessage);
+          throw new InternalServerErrorException(message, displayMessage, code);
         case 502:
-          throw new BadGatewayException(message, displayMessage);
+          throw new BadGatewayException(message, displayMessage, code);
         case 503:
-          throw new ServiceUnavailableException(message, displayMessage);
+          throw new ServiceUnavailableException(message, displayMessage, code);
         case 504:
-          throw new GatewayTimeoutException(message, displayMessage);
+          throw new GatewayTimeoutException(message, displayMessage, code);
         default:
           throw new AppException({
             status: status as any,

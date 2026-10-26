@@ -4,10 +4,11 @@ export class GatewayTimeoutException extends AppException {
   constructor(
     message = "Tempo limite de requisição excedido",
     displayMessage = "O serviço externo demorou muito para responder",
+    code = "GATEWAY_TIMEOUT",
   ) {
     super({
       status: 504,
-      code: "GATEWAY_TIMEOUT",
+      code,
       message,
       displayMessage,
     });
