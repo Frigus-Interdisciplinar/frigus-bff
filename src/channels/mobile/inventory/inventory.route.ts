@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authMiddleware } from "../../../middlewares/index.js";
 import { coreApiService } from "../../../services/index.js";
 import type { CorePage, CoreStockProduct } from "../../../types/core-api.type.js";
+import { NotFoundException } from "../../../exceptions/index.js";
 
 const inventoryRoute = new Hono();
 inventoryRoute.use("*", authMiddleware);
@@ -13,6 +14,12 @@ const uuid = z.string().uuid();
 const category = z.enum(["FRUIT", "VEGETABLE", "DAIRY", "GRAIN", "MEAT", "BEVERAGE", "CLEANING", "PERSONAL_HYGIENE", "FISH", "FROZEN", "SWEETS", "CANNED", "SEASONING"]);
 const storagePlace = z.enum(["FRIDGE", "FREEZER", "PANTRY", "CABINET", "SHELF"]);
 import { movementSchema, receiptConfirmSchema, receiptScanSchema, stockProductUpdateSchema as updateSchema } from "../../../schemas/core-api.schema.js";
+import { groupProductSchema } from "../../../schemas/core-api.schema.js";
+
+const manualStockProductSchema = z.union([
+  z.object({ productId: positiveInteger, quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional() }),
+  groupProductSchema.extend({ quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional() }),
+]);
 
 inventoryRoute.post("/receipts/scan", async (c) => {
   const body = receiptScanSchema.parse(await c.req.json());
@@ -92,6 +99,39 @@ inventoryRoute.get("/stocks/:stockId/products", async (c) => {
   const query = c.req.query("q")?.trim().toLocaleLowerCase("pt-BR");
   const result = await coreApiService.listStockProducts(String(stockId), c.get("authHeaders"), page, size, categoryFilter, placeFilter, query);
   return c.json(result);
+});
+
+inventoryRoute.post("/stocks/:stockId/products", async (c) => {
+  const stockId = positiveInteger.parse(c.req.param("stockId"));
+  const input = manualStockProductSchema.parse(await c.req.json());
+  const headers = c.get("authHeaders");
+  const context = await coreApiService.getActiveContext(headers);
+  const stock = context.stocks.find((item) => item.id === stockId);
+  if (!stock) {
+    throw new NotFoundException("Estoque não encontrado no grupo ativo", "Selecione um estoque do grupo ativo");
+  }
+
+  const productId = "productId" in input
+    ? input.productId
+    : (await coreApiService.createGroupProduct(context.groupId, {
+      name: input.name,
+      category: input.category,
+      storagePlace: input.storagePlace,
+      unitPrice: input.unitPrice,
+      unitOfMeasure: input.unitOfMeasure,
+      ...(input.brand === undefined ? {} : { brand: input.brand }),
+      ...(input.imageUrl === undefined ? {} : { imageUrl: input.imageUrl }),
+    }, headers)).id;
+
+  const stockProduct = await coreApiService.createStockProduct({
+    productId,
+    stockId,
+    quantity: input.quantity,
+    expireDate: input.expireDate,
+    ...(input.minimalQuantity === undefined ? {} : { minimalQuantity: input.minimalQuantity }),
+    ...(input.batch === undefined ? {} : { batch: input.batch }),
+  }, headers);
+  return c.json(stockProduct, 201);
 });
 
 inventoryRoute.get("/products", async (c) => {
