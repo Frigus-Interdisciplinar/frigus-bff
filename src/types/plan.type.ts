@@ -7,6 +7,7 @@ export type PlanCode =
 
 export interface PlanLimits {
   planCode: PlanCode;
+  maxGroupsCreated: number;
   maxGroupMembers: number;
   maxStocks: number;
   maxProductsPerStock: number;

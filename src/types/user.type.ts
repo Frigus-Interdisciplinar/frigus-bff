@@ -7,6 +7,9 @@ export interface UserResponse {
   name: string;
   profilePictureUrl?: string | null;
   email: string;
+  emailVerified?: boolean;
+  planSelectionRequired?: boolean;
+  pendingPlanTransactionId?: string | null;
   accountType: AccountType;
   birthDate: string;
 }

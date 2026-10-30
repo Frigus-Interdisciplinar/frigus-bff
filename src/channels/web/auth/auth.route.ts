@@ -34,7 +34,11 @@ authRoute.post("/verify-reset-code", async (c) => {
 authRoute.post("/login", async (c) => {
   const body = await c.req.json();
   const { rememberMe, ...validData } = loginSchema.parse(body);
-  const result = await authService.login(validData);
+  const userAgent = c.req.header("User-Agent");
+  const result = await authService.login(
+    validData,
+    userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
+  );
   const persistentCookie = rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {};
 
   setCookie(c, "accessToken", result.accessToken, {
@@ -77,7 +81,11 @@ authRoute.post("/refresh", async (c) => {
   const rememberMe = getCookie(c, "rememberMe") === "true";
   const persistentCookie = rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {};
   const refreshToken = validData.refreshToken ?? getCookie(c, "refreshToken");
-  const result = await authService.refreshToken(refreshToken);
+  const userAgent = c.req.header("User-Agent");
+  const result = await authService.refreshToken(
+    refreshToken,
+    userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
+  );
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
