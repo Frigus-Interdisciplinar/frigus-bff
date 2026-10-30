@@ -6,3 +6,4 @@ export * from "./user.service.js";
 export * from "./transaction.service.js";
 export * from "./domestic.service.js";
 export * from "./core-api.service.js";
+export * from "./commercial-access.service.js";

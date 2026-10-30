@@ -1,4 +1,8 @@
 import { api } from "../utils/index.js";
+import { axiosInstance } from "../utils/axios-instance.js";
+import { handleAxiosError } from "../utils/api-client.js";
+import type { AxiosRequestConfig, AxiosResponse } from "axios";
+import type { PlanLimits } from "../types/plan.type.js";
 import type { ApiBodylessRequestOptions } from "../types/index.js";
 import type {
   CoreConversation,
@@ -32,6 +36,15 @@ const options = (headers: ApiBodylessRequestOptions["headers"], params?: Query, 
  * It intentionally does not manufacture data for features the core-api does not own.
  */
 export class CoreApiService {
+  /** Forward a Core API operation while preserving its status and response body. */
+  async forwardRequest(config: AxiosRequestConfig): Promise<AxiosResponse> {
+    try {
+      return await axiosInstance.request(config);
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
   listMyAdvertisements(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number) {
     return api.get<CorePage<CoreAdvertisement>>("/advertisements/mine", options(headers, { page, size }));
   }
@@ -195,6 +208,41 @@ export class CoreApiService {
 
   listPlans() {
     return api.get<unknown[]>("/plans/active");
+  }
+
+  getMyPlanLimits(headers: ApiBodylessRequestOptions["headers"]) {
+    return api.get<PlanLimits>("/plans/me/limits", options(headers));
+  }
+
+  getMoneySavingSummary(groupId: string, from: string, to: string, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.get<unknown>(`/groups/${groupId}/money-saving/summary`, options(headers, { from, to }));
+  }
+
+  getMoneySavingEvents(
+    groupId: string,
+    query: { from: string; to: string; category?: string; kind?: string; page?: number; size?: number },
+    headers: ApiBodylessRequestOptions["headers"],
+  ) {
+    return api.get<unknown>(`/groups/${groupId}/money-saving/events`, options(headers, query));
+  }
+
+  createFoodPurchase(groupId: string, body: unknown, idempotencyKey: string, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.post<unknown>(`/groups/${groupId}/food-purchases`, body, {
+      ...options(headers),
+      headers: { ...headers, "Idempotency-Key": idempotencyKey },
+    });
+  }
+
+  getFoodPurchase(groupId: string, purchaseId: string, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.get<unknown>(`/groups/${groupId}/food-purchases/${purchaseId}`, options(headers));
+  }
+
+  updateFoodPurchase(groupId: string, purchaseId: string, body: unknown, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.put<unknown>(`/groups/${groupId}/food-purchases/${purchaseId}`, body, options(headers));
+  }
+
+  deleteFoodPurchase(groupId: string, purchaseId: string, headers: ApiBodylessRequestOptions["headers"]) {
+    return api.delete<void>(`/groups/${groupId}/food-purchases/${purchaseId}`, options(headers));
   }
 
   checkout(body: { planCode: string; paymentMethod?: "PIX" | "BOLETO" | "CREDIT_CARD" | "DEBIT_CARD"; fakeCardLast4?: string; fakePixKey?: string }, headers: ApiBodylessRequestOptions["headers"]) {

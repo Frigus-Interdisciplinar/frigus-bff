@@ -9,7 +9,11 @@ const userRoute = new Hono();
 userRoute.post("/login", async (c) => {
   const body = await c.req.json();
   const validData = loginSchema.parse(body);
-  const result = await authService.login(validData);
+  const userAgent = c.req.header("User-Agent");
+  const result = await authService.login(
+    validData,
+    userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
+  );
   return c.json(result);
 });
 
