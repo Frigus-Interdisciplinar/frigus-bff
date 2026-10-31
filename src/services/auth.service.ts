@@ -2,6 +2,7 @@ import { api } from "../utils/index.js";
 import type {
   ApiBodylessRequestOptions,
   LoginRequest,
+  GoogleLoginRequest,
   LoginResponse,
   PasswordRecoveryRequest,
   RefreshRequest,
@@ -29,6 +30,17 @@ export class AuthService {
     options?: ApiBodylessRequestOptions,
   ): Promise<LoginResponse> {
     return api.post<LoginResponse, LoginRequest>("/auth/login", body, options);
+  }
+
+  async loginWithGoogle(
+    body: Pick<GoogleLoginRequest, "idToken">,
+    options?: ApiBodylessRequestOptions,
+  ): Promise<LoginResponse> {
+    return api.post<LoginResponse, Pick<GoogleLoginRequest, "idToken">>(
+      "/auth/google",
+      body,
+      options,
+    );
   }
 
   async refreshToken(
