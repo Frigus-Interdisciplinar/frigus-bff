@@ -5,6 +5,11 @@ export interface LoginRequest {
   rawPassword: string;
 }
 
+export interface GoogleLoginRequest {
+  idToken: string;
+  rememberMe?: boolean;
+}
+
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
