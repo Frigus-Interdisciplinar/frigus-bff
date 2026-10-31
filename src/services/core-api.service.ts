@@ -25,6 +25,11 @@ import type {
 
 type Query = Record<string, string | number | boolean | undefined>;
 
+type CurrentSubscription = {
+  status?: string | null;
+  currentPeriodEnd?: string | null;
+};
+
 const options = (headers: ApiBodylessRequestOptions["headers"], params?: Query, timeout?: number) => ({
   headers,
   params,
@@ -254,7 +259,7 @@ export class CoreApiService {
   }
 
   getMySubscription(headers: ApiBodylessRequestOptions["headers"]) {
-    return api.get<unknown>("/subscriptions/me", options(headers));
+    return api.get<CurrentSubscription>("/subscriptions/me", options(headers));
   }
 
   cancelMySubscription(headers: ApiBodylessRequestOptions["headers"]) {
