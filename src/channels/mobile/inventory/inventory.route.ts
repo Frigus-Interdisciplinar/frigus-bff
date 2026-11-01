@@ -17,8 +17,8 @@ import { movementSchema, receiptConfirmSchema, receiptScanSchema, stockProductUp
 import { groupProductSchema } from "../../../schemas/core-api.schema.js";
 
 const manualStockProductSchema = z.union([
-  z.object({ productId: positiveInteger, quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional() }),
-  groupProductSchema.extend({ quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional() }),
+  z.object({ productId: positiveInteger, quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional(), purchaseUnitPrice: z.number().positive().max(99999999.99).refine((value) => /^\d+(\.\d{1,2})?$/.test(String(value))).optional() }),
+  groupProductSchema.extend({ quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional(), purchaseUnitPrice: z.number().positive().max(99999999.99).refine((value) => /^\d+(\.\d{1,2})?$/.test(String(value))).optional() }),
 ]);
 
 inventoryRoute.post("/receipts/scan", async (c) => {
@@ -103,9 +103,11 @@ inventoryRoute.get("/stocks/:stockId/products", async (c) => {
 
 inventoryRoute.post("/stocks/:stockId/products", async (c) => {
   const stockId = positiveInteger.parse(c.req.param("stockId"));
+  const groupId = c.req.query("groupId");
+  if (groupId) uuid.parse(groupId);
   const input = manualStockProductSchema.parse(await c.req.json());
   const headers = c.get("authHeaders");
-  const context = await coreApiService.getActiveContext(headers);
+  const context = await coreApiService.getActiveContext(headers, groupId);
   const stock = context.stocks.find((item) => item.id === stockId);
   if (!stock) {
     throw new NotFoundException("Estoque não encontrado no grupo ativo", "Selecione um estoque do grupo ativo");
@@ -128,6 +130,7 @@ inventoryRoute.post("/stocks/:stockId/products", async (c) => {
     stockId,
     quantity: input.quantity,
     expireDate: input.expireDate,
+    ...(input.purchaseUnitPrice === undefined ? {} : { purchaseUnitPrice: input.purchaseUnitPrice }),
     ...(input.minimalQuantity === undefined ? {} : { minimalQuantity: input.minimalQuantity }),
     ...(input.batch === undefined ? {} : { batch: input.batch }),
   }, headers);
