@@ -21,6 +21,8 @@ refresh é persistente ou termina ao fechar o navegador; o BFF mantém essa esco
 ao renovar tokens. Em produção, configure `WEB_ORIGINS` com as origens exatas do
 web e use HTTPS.
 
+O login web com Google usa `POST /web/auth/google`: o BFF recebe o ID token, repassa-o à rota `/auth/google` da Core API e grava os mesmos cookies `HttpOnly` usados no login por senha. Configure o mesmo OAuth Client ID no frontend (`VITE_GOOGLE_CLIENT_ID`) e na Core API (`GOOGLE_CLIENT_ID`); o BFF não precisa armazenar o Client ID nem o ID token.
+
 Configure `CORS_ALLOWED_ORIGINS` no Core API com a mesma lista de origens web
 permitidas. O Core API recebe tokens somente por `Authorization: Bearer`; os
 cookies de sessão ficam restritos ao BFF. O BFF exige um cabeçalho `Origin`
@@ -38,3 +40,9 @@ As rotas web ficam sob `/web`. Veja `docs/frontend-screen-contract.md` e
 O mapeamento das telas Mobile de estoque, receitas e notificações está em
 `docs/mobile-screen-contract.md`; lacunas da core-api para essas telas estão em
 `TODO.md`.
+
+## Cadastro e planos
+
+Após criar a conta, o frontend lista os planos ativos em `GET /web/plans`. A conta escolhe um plano compatível com seu perfil; o plano gratuito é ativado pela Core API sem etapa de pagamento. Para planos pagos, `POST /web/core/transactions/checkout` inicia a transação e `GET /web/core/transactions/:id` consulta o resultado. O frontend só libera o acesso após a API confirmar a aprovação.
+
+O estado de escolha de plano e o identificador da transação pendente fazem parte do contrato de usuário da Core API e são repassados pelo BFF. A tela de checkout existente é demonstrativa e não processa cobrança real. A migração Flyway `V018__user_plan_selection.sql` é executada pela Core API ao iniciar com Flyway habilitado; veja também a documentação do fluxo no README do `frigus-react-web`.

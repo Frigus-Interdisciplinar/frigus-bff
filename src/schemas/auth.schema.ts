@@ -7,6 +7,11 @@ export const loginSchema = z.object({
   rememberMe: z.boolean().default(false),
 });
 
+export const googleLoginSchema = z.object({
+  idToken: z.string().trim().min(1).max(8192),
+  rememberMe: z.boolean().default(false),
+});
+
 // validacao de registro de novo usuario
 export const registerSchema = z.object({
   name: z.string().trim().min(1, "O nome e obrigatorio"),

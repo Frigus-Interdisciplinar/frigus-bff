@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
+import { env } from "../../../config/env.js";
 import { authService } from "../../../services/index.js";
 import {
   forgotPasswordSchema,
+  googleLoginSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
@@ -11,6 +13,8 @@ import {
 } from "../../../schemas/index.js";
 
 const authRoute = new Hono();
+const secureCookies = env.NODE_ENV === "production";
+const sameSite: "Lax" | "None" = secureCookies ? "None" : "Lax";
 
 authRoute.post("/forgot-password", async (c) => {
   const body = forgotPasswordSchema.parse(await c.req.json());
@@ -43,22 +47,56 @@ authRoute.post("/login", async (c) => {
 
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Lax",
+    secure: secureCookies,
+    sameSite,
     maxAge: 15 * 60, // 15 minutos
     path: "/",
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Lax",
+    secure: secureCookies,
+    sameSite,
     ...persistentCookie,
     path: "/"
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Lax",
+    secure: secureCookies,
+    sameSite,
+    ...persistentCookie,
+    path: "/",
+  });
+
+  return c.json({ user: result.user });
+});
+
+authRoute.post("/google", async (c) => {
+  const { idToken, rememberMe } = googleLoginSchema.parse(await c.req.json());
+  const userAgent = c.req.header("User-Agent");
+  const result = await authService.loginWithGoogle(
+    { idToken },
+    userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
+  );
+  const persistentCookie = rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {};
+
+  setCookie(c, "accessToken", result.accessToken, {
+    httpOnly: true,
+    secure: secureCookies,
+    sameSite,
+    maxAge: 15 * 60,
+    path: "/",
+  });
+  setCookie(c, "refreshToken", result.refreshToken, {
+    httpOnly: true,
+    secure: secureCookies,
+    sameSite,
+    ...persistentCookie,
+    path: "/",
+  });
+  setCookie(c, "rememberMe", String(rememberMe), {
+    httpOnly: true,
+    secure: secureCookies,
+    sameSite,
     ...persistentCookie,
     path: "/",
   });
@@ -88,22 +126,22 @@ authRoute.post("/refresh", async (c) => {
   );
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Lax",
+    secure: secureCookies,
+    sameSite,
     maxAge: 15 * 60,
     path: "/",
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Lax",
+    secure: secureCookies,
+    sameSite,
     ...persistentCookie,
     path: "/",
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Lax",
+    secure: secureCookies,
+    sameSite,
     ...persistentCookie,
     path: "/",
   });
