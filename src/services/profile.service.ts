@@ -46,12 +46,12 @@ export class ProfileService {
     return api.patch<void, UserChangePasswordRequest>(
       "/profile/password",
       body,
-      options,
+      { ...options, allowEmptyResponse: true },
     );
   }
 
   async deleteCurrentUser(options?: ApiBodylessRequestOptions): Promise<void> {
-    return api.delete<void>("/profile", options);
+    return api.delete<void>("/profile", { ...options, allowEmptyResponse: true });
   }
 }
 

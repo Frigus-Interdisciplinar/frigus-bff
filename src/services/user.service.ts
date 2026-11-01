@@ -75,7 +75,7 @@ export class UserService {
     return api.patch<void, UserAdminResetPasswordRequest>(
       `/user/${id}/password`,
       body,
-      options,
+      { ...options, allowEmptyResponse: true },
     );
   }
 
@@ -83,7 +83,7 @@ export class UserService {
     id: string,
     options?: ApiBodylessRequestOptions,
   ): Promise<void> {
-    return api.delete<void>(`/user/${id}`, options);
+    return api.delete<void>(`/user/${id}`, { ...options, allowEmptyResponse: true });
   }
 }
 

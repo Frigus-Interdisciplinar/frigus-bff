@@ -11,6 +11,7 @@ export interface ApiRequestOptions<B = unknown> {
   timeout?: number;
   signal?: AbortSignal;
   responseSchema?: ZodType<unknown>;
+  allowEmptyResponse?: boolean;
   axiosConfig?: Omit<
     AxiosRequestConfig,
     "url" | "method" | "data" | "params" | "headers" | "timeout" | "signal"

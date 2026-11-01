@@ -62,6 +62,10 @@ const options = (headers: ApiBodylessRequestOptions["headers"], params?: Query, 
   params,
   timeout,
 });
+const noContentOptions = (headers: ApiBodylessRequestOptions["headers"]) => ({
+  ...options(headers),
+  allowEmptyResponse: true,
+});
 
 /**
  * Thin, typed adapter around endpoints that are already implemented in core-api.
@@ -103,7 +107,7 @@ export class CoreApiService {
   }
 
   recordAdvertisementEvent(id: string, event: "impressions" | "clicks", headers: ApiBodylessRequestOptions["headers"]) {
-    return api.post<void>(`/advertisements/${id}/${event}`, undefined, options(headers));
+    return api.post<void>(`/advertisements/${id}/${event}`, undefined, noContentOptions(headers));
   }
 
   getActiveContext(headers: ApiBodylessRequestOptions["headers"], groupId?: string) {
@@ -140,7 +144,7 @@ export class CoreApiService {
   }
 
   removeGroupMember(id: string, userId: string, headers: ApiBodylessRequestOptions["headers"]) {
-    return api.delete<void>(`/groups/${id}/members/${userId}`, options(headers));
+    return api.delete<void>(`/groups/${id}/members/${userId}`, noContentOptions(headers));
   }
 
   listStocks(groupId: string, headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number) {
@@ -178,7 +182,7 @@ export class CoreApiService {
   }
 
   deleteStockProduct(id: string, headers: ApiBodylessRequestOptions["headers"]) {
-    return api.delete<void>(`/stock-products/${id}`, options(headers));
+    return api.delete<void>(`/stock-products/${id}`, noContentOptions(headers));
   }
 
   createStockProduct(body: { productId: number; stockId: number; quantity: number; minimalQuantity?: number; expireDate: string; batch?: string }, headers: ApiBodylessRequestOptions["headers"]) {
@@ -294,7 +298,7 @@ export class CoreApiService {
   }
 
   deleteFoodPurchase(groupId: string, purchaseId: string, headers: ApiBodylessRequestOptions["headers"]) {
-    return api.delete<void>(`/groups/${groupId}/food-purchases/${purchaseId}`, options(headers));
+    return api.delete<void>(`/groups/${groupId}/food-purchases/${purchaseId}`, noContentOptions(headers));
   }
 
   checkout(body: { planCode: string; paymentMethod?: "PIX" | "BOLETO" | "CREDIT_CARD" | "DEBIT_CARD"; fakeCardLast4?: string; fakePixKey?: string }, headers: ApiBodylessRequestOptions["headers"]) {
@@ -322,26 +326,26 @@ export class CoreApiService {
   }
   createShoppingList(body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>("/shopping-lists", body, options(headers)); }
   getShoppingList(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown>(`/shopping-lists/${id}`, options(headers)); }
-  cancelShoppingList(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}`, options(headers)); }
+  cancelShoppingList(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}`, noContentOptions(headers)); }
   shoppingSuggestions(stockId: number, headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown[]>("/shopping-lists/suggestions", options(headers, { stockId })); }
   addShoppingItem(id: string, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>(`/shopping-lists/${id}/items`, body, options(headers)); }
   updateShoppingItem(id: string, itemId: number, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.patch<unknown>(`/shopping-lists/${id}/items/${itemId}`, body, options(headers)); }
-  deleteShoppingItem(id: string, itemId: number, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}/items/${itemId}`, options(headers)); }
-  clearPurchasedItems(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}/purchased-items`, options(headers)); }
+  deleteShoppingItem(id: string, itemId: number, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}/items/${itemId}`, noContentOptions(headers)); }
+  clearPurchasedItems(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}/purchased-items`, noContentOptions(headers)); }
   completeShoppingList(id: string, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>(`/shopping-lists/${id}/complete`, body, options(headers)); }
   listRecipes(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number, name?: string) { return api.get<CorePage<CoreRecipe>>("/recipes", { ...options(headers, { page, size, name }), responseSchema: coreRecipePageSchema }); }
   listFavoriteRecipes(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number) { return api.get<CorePage<CoreRecipe>>("/recipes/favorites", { ...options(headers, { page, size }), responseSchema: coreRecipePageSchema }); }
   getRecipe(id: number, headers: ApiBodylessRequestOptions["headers"]) { return api.get<CoreRecipe>(`/recipes/${id}`, { ...options(headers), responseSchema: coreRecipeSchema }); }
   getRecipeAvailability(id: number, headers: ApiBodylessRequestOptions["headers"], stockId?: number) { return api.get<CoreRecipeAvailability[]>(`/recipes/${id}/availability`, { ...options(headers, { stockId }), responseSchema: coreRecipeAvailabilityListSchema }); }
   recipeSuggestions(headers: ApiBodylessRequestOptions["headers"], stockId?: number, limit?: number) { return api.get<unknown[]>("/recipes/suggestions", options(headers, { stockId, limit })); }
-  favoriteRecipe(id: number, favorite: boolean, headers: ApiBodylessRequestOptions["headers"]) { return favorite ? api.put<void>(`/recipes/${id}/favorite`, undefined, options(headers)) : api.delete<void>(`/recipes/${id}/favorite`, options(headers)); }
+  favoriteRecipe(id: number, favorite: boolean, headers: ApiBodylessRequestOptions["headers"]) { return favorite ? api.put<void>(`/recipes/${id}/favorite`, undefined, noContentOptions(headers)) : api.delete<void>(`/recipes/${id}/favorite`, noContentOptions(headers)); }
   chatWithRecipeAi(body: { message: string; stockId: number; sessionId?: string }, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>("/ai/recipes/chat", body, options(headers, undefined, 120_000)); }
   recipeAiSuggestions(stockId: number, headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown[]>(`/ai/recipes/suggestions/stock/${stockId}`, options(headers)); }
   listNotifications(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number, unread = false) { return api.get<CorePage<CoreNotification>>(unread ? "/notifications/unread" : "/notifications", { ...options(headers, { page, size }), responseSchema: coreNotificationPageSchema }); }
   unreadCount(headers: ApiBodylessRequestOptions["headers"]) { return api.get<{ count: number }>("/notifications/unread-count", { ...options(headers), responseSchema: coreUnreadCountSchema }); }
   markNotificationRead(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.patch<CoreNotification>(`/notifications/${id}/read`, undefined, { ...options(headers), responseSchema: coreNotificationSchema }); }
-  markAllNotificationsRead(headers: ApiBodylessRequestOptions["headers"]) { return api.patch<void>("/notifications/read-all", undefined, options(headers)); }
-  clearNotifications(headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>("/notifications", options(headers)); }
+  markAllNotificationsRead(headers: ApiBodylessRequestOptions["headers"]) { return api.patch<void>("/notifications/read-all", undefined, noContentOptions(headers)); }
+  clearNotifications(headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>("/notifications", noContentOptions(headers)); }
   getPreferences(headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown>("/profile/preferences", options(headers)); }
   updatePreferences(body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.put<unknown>("/profile/preferences", body, options(headers)); }
   listInvitations(groupId: string, headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown[]>(`/groups/${groupId}/invitations`, options(headers)); }

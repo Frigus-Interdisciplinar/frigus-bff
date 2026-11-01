@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   authService,
+  coreApiService,
   profileService,
   userService,
   transactionService,
@@ -27,6 +28,7 @@ async function runServiceTests() {
   const validatedGroup = coreGroupSchema.parse({
     id: "11111111-1111-4111-8111-111111111111",
     name: "Grupo",
+    bannerPicture: "https://example.com/group.png",
     ownerId: "22222222-2222-4222-8222-222222222222",
     ownerName: "Proprietário",
     isOwner: false,
@@ -39,6 +41,7 @@ async function runServiceTests() {
       memberRole: "EDITOR",
     }],
   });
+  assert.equal(validatedGroup.bannerPicture, "https://example.com/group.png");
   assert.equal(validatedGroup.members[0]?.memberRole, "EDITOR");
   assert.equal("role" in (validatedGroup.members[0] ?? {}), false);
 
@@ -251,6 +254,25 @@ async function runServiceTests() {
     body: "{ invalid",
   });
   assert.equal(invalidProxyJsonRes.status, 400);
+  const originalForwardRequest = coreApiService.forwardRequest;
+  coreApiService.forwardRequest = async () => ({
+    data: JSON.stringify({ accessToken: "google-access-token" }),
+    status: 200,
+    statusText: "OK",
+    headers: { "content-type": "application/json" },
+    config: {},
+  } as Awaited<ReturnType<typeof coreApiService.forwardRequest>>);
+  try {
+    const googleLoginRes = await app.request("/mobile/core/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken: "google-id-token" }),
+    });
+    assert.equal(googleLoginRes.status, 200);
+    assert.equal((await googleLoginRes.json()).accessToken, "google-access-token");
+  } finally {
+    coreApiService.forwardRequest = originalForwardRequest;
+  }
   const unsupportedProxyBodyRes = await app.request("/mobile/core/profile/app-settings", {
     method: "PUT",
     headers: { Authorization: "Bearer mock-token", "Content-Type": "text/plain" },

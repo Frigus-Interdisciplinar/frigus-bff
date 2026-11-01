@@ -5,10 +5,20 @@ import { z } from "zod";
 import { coreApiService } from "../../../services/index.js";
 import { assertCommercialMoneySavingAccess } from "../../../services/index.js";
 import { UnauthorizedException } from "../../../exceptions/index.js";
-import { authMiddleware } from "../../../middlewares/index.js";
+import { authMiddleware, publicAuthRateLimitMiddleware } from "../../../middlewares/index.js";
 
 const coreProxyRoute = new Hono<AppBindings>();
-coreProxyRoute.use("*", authMiddleware);
+const corePathFor = (path: string) => path.replace(/^\/mobile\/core(?=\/|$)/, "") || "/";
+const isPublicGoogleLogin = (method: string, path: string) =>
+  method.toUpperCase() === "POST" && corePathFor(path) === "/auth/google";
+
+coreProxyRoute.use("*", async (c, next) => {
+  if (isPublicGoogleLogin(c.req.method, c.req.path)) {
+    await publicAuthRateLimitMiddleware(c, next);
+    return;
+  }
+  await authMiddleware(c, next);
+});
 const forwardedHeaders = [
   "content-type",
   "user-agent",
@@ -30,7 +40,7 @@ coreProxyRoute.all("*", async (c) => {
     return c.json({ status: 405, code: "METHOD_NOT_ALLOWED", message: "Método HTTP não permitido" }, 405);
   }
 
-  const corePath = c.req.path.replace(/^\/mobile\/core(?=\/|$)/, "") || "/";
+  const corePath = corePathFor(c.req.path);
   const requestUrl = new URL(c.req.url);
   if (
     corePath.startsWith("//") ||
@@ -42,9 +52,10 @@ coreProxyRoute.all("*", async (c) => {
   ) {
     return c.json({ status: 400, code: "BAD_REQUEST", message: "Caminho inválido" }, 400);
   }
-  const headers: Record<string, string> = {
-    Authorization: c.get("authHeaders").Authorization,
-  };
+  const headers: Record<string, string> = {};
+  if (!isPublicGoogleLogin(method, c.req.path)) {
+    headers.Authorization = c.get("authHeaders").Authorization;
+  }
 
   for (const name of forwardedHeaders) {
     const value = c.req.header(name);

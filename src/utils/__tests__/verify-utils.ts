@@ -246,6 +246,24 @@ async function runTests() {
     () => api<unknown, undefined>("/contract", "GET", undefined, { client: nonJsonClient }),
     (error: unknown) => error instanceof BadGatewayException && error.code === "INVALID_UPSTREAM_RESPONSE",
   );
+  for (const status of [200, 204]) {
+    const emptyResponseClient = createAxiosInstance({
+      adapter: async (config) => ({
+        data: "",
+        status,
+        statusText: status === 204 ? "No Content" : "OK",
+        headers: new AxiosHeaders(),
+        config,
+      }),
+    });
+    const emptyResponse = await api<void, undefined>(
+      "/contract",
+      "DELETE",
+      undefined,
+      { client: emptyResponseClient, allowEmptyResponse: true },
+    );
+    assert.equal(emptyResponse, undefined);
+  }
 
   let upstreamCorrelationId: string | undefined;
   const correlationClient = createAxiosInstance({

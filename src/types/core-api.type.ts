@@ -9,6 +9,7 @@ export interface CorePage<T> {
 export interface CoreGroup {
   id: string;
   name: string;
+  bannerPicture?: string;
   ownerId: string;
   ownerName: string;
   isOwner: boolean;

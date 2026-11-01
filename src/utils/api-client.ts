@@ -219,6 +219,15 @@ async function request<T, B = unknown>(
     handleAxiosError(error);
   }
 
+  if (
+    options?.allowEmptyResponse &&
+    response.status >= 200 &&
+    response.status < 300 &&
+    (response.data === "" || response.data === undefined)
+  ) {
+    return undefined as T;
+  }
+
   const parsed = (options?.responseSchema ?? jsonResponseSchema).safeParse(response.data);
   if (!parsed.success) {
     throw new BadGatewayException(

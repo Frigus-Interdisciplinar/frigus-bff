@@ -24,6 +24,7 @@ export const coreActiveContextSchema = z.object({
 export const coreGroupSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
+  bannerPicture: z.string().nullable().optional().transform((value) => value ?? undefined),
   ownerId: z.string().uuid(),
   ownerName: z.string(),
   isOwner: z.boolean(),
