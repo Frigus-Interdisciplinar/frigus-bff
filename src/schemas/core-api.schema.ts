@@ -42,6 +42,10 @@ export const aiRecipeChatSchema = z.object({
   message: z.string().trim().min(1).max(4000),
   stockId: positiveInteger,
   sessionId: optionalInput(z.string().trim().max(200)),
+  foodPreferences: z.array(z.enum([
+    "VEGETARIAN", "VEGAN", "NO_RED_MEAT", "NO_SEAFOOD", "NO_LACTOSE",
+    "NO_GLUTEN", "NO_SUGAR", "QUICK_RECIPES", "ECONOMICAL_RECIPES",
+  ])).max(9).optional(),
 });
 export const httpsUrl = z.string().max(2048).url().refine((value) => new URL(value).protocol === "https:", "Use uma URL HTTPS pública");
 export const advertisementSchema = z.object({

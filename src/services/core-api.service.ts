@@ -283,7 +283,7 @@ export class CoreApiService {
   getRecipeAvailability(id: number, headers: ApiBodylessRequestOptions["headers"], stockId?: number) { return api.get<CoreRecipeAvailability[]>(`/recipes/${id}/availability`, options(headers, { stockId })); }
   recipeSuggestions(headers: ApiBodylessRequestOptions["headers"], stockId?: number, limit?: number) { return api.get<unknown[]>("/recipes/suggestions", options(headers, { stockId, limit })); }
   favoriteRecipe(id: number, favorite: boolean, headers: ApiBodylessRequestOptions["headers"]) { return favorite ? api.put<void>(`/recipes/${id}/favorite`, undefined, options(headers)) : api.delete<void>(`/recipes/${id}/favorite`, options(headers)); }
-  chatWithRecipeAi(body: { message: string; stockId: number; sessionId?: string }, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>("/ai/recipes/chat", body, options(headers, undefined, 120_000)); }
+  chatWithRecipeAi(body: { message: string; stockId: number; sessionId?: string; foodPreferences?: string[] }, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>("/ai/recipes/chat", body, options(headers, undefined, 120_000)); }
   recipeAiSuggestions(stockId: number, headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown[]>(`/ai/recipes/suggestions/stock/${stockId}`, options(headers)); }
   listNotifications(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number, unread = false) { return api.get<CorePage<CoreNotification>>(unread ? "/notifications/unread" : "/notifications", options(headers, { page, size })); }
   unreadCount(headers: ApiBodylessRequestOptions["headers"]) { return api.get<{ count: number }>("/notifications/unread-count", options(headers)); }

@@ -1046,7 +1046,9 @@ Retorna array de sugestões persistidas, em ordem de score decrescente no reposi
 
 **Aliases:** `chat-ia`, `chat-ia-ajuda`.  
 **Autenticação:** `Authorization: Bearer <accessToken>`.  
-**Upstream:** `POST /ai/recipes/chat → frigus-ai /v1/chats e /v1/chats/{chatId}/messages`.
+**Upstream:** `POST /ai/recipes/chat → frigus-ai POST /internal/core/chat`.
+O Core encaminha a identidade autenticada por uma credencial exclusiva de serviço;
+o app nunca recebe essa chave. A IA valida o vínculo do usuário ao estoque e à conversa.
 
 **Campos do body**
 
@@ -1055,6 +1057,7 @@ Retorna array de sugestões persistidas, em ordem de score decrescente no reposi
 | message | string | Sim | Trim, 1–4000 caracteres. |
 | stockId | inteiro > 0 | Sim | Estoque acessível ao usuário; envie número JSON. |
 | sessionId | string | Não | Não vazia após trim. Omitir no primeiro envio; reutilizar o sessionId recebido para continuar. |
+| foodPreferences | string[] | Não | Até 9 identificadores: `VEGETARIAN`, `VEGAN`, `NO_RED_MEAT`, `NO_SEAFOOD`, `NO_LACTOSE`, `NO_GLUTEN`, `NO_SUGAR`, `QUICK_RECIPES`, `ECONOMICAL_RECIPES`. Lista vazia remove preferências selecionadas para este turno; não remove alergias informadas no perfil/conversa. |
 
 **JSON da requisição**
 
@@ -1070,6 +1073,7 @@ Retorna array de sugestões persistidas, em ordem de score decrescente no reposi
 ```json
 {
   "sessionId": "55555555-5555-4555-8555-555555555555",
+  "recipeIds": [501],
   "chatMessage": "Você pode preparar uma bebida usando o leite do estoque.",
   "recipeId": 501,
   "recipeName": "Bebida com leite",
