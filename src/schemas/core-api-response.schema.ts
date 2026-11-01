@@ -38,13 +38,9 @@ export const coreGroupSchema = z.object({
     role: z.string().optional(),
     memberRole: z.string().optional(),
   }).refine((member) => member.role !== undefined || member.memberRole !== undefined)
-    .transform((member) => ({
-      userId: member.userId,
-      name: member.name,
-      email: member.email,
-      role: member.role ?? member.memberRole ?? "",
-      ...(member.isOwner === undefined ? {} : { isOwner: member.isOwner }),
-      ...(member.joinedAt === undefined ? {} : { joinedAt: member.joinedAt }),
+    .transform(({ role, memberRole, ...member }) => ({
+      ...member,
+      memberRole: memberRole ?? role ?? "",
     }))),
 });
 

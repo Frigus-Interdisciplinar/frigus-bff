@@ -16,7 +16,7 @@ import {
 import { app } from "../../app.js";
 import { z } from "zod";
 import { envSchema } from "../../config/env.js";
-import { coreStockSummarySchema } from "../../schemas/core-api-response.schema.js";
+import { coreGroupSchema, coreStockSummarySchema } from "../../schemas/core-api-response.schema.js";
 
 async function runServiceTests() {
   console.log("🧪 Starting validation tests for Core API integration...\n");
@@ -24,6 +24,24 @@ async function runServiceTests() {
   assert.equal(envSchema.safeParse({ WEB_ORIGINS: "*" }).success, false);
   assert.equal(envSchema.safeParse({ WEB_ORIGINS: "https://example.com/path" }).success, false);
   assert.equal(envSchema.safeParse({ WEB_ORIGINS: "https://example.com" }).success, true);
+  const validatedGroup = coreGroupSchema.parse({
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Grupo",
+    ownerId: "22222222-2222-4222-8222-222222222222",
+    ownerName: "Proprietário",
+    isOwner: false,
+    membersCount: 1,
+    members: [{
+      userId: "33333333-3333-4333-8333-333333333333",
+      name: "Membro",
+      email: "member@example.com",
+      isOwner: false,
+      memberRole: "EDITOR",
+    }],
+  });
+  assert.equal(validatedGroup.members[0]?.memberRole, "EDITOR");
+  assert.equal("role" in (validatedGroup.members[0] ?? {}), false);
+
   const validatedSummary = coreStockSummarySchema.parse({
     groupId: "22222222-2222-4222-8222-222222222222",
     stockCount: 1,

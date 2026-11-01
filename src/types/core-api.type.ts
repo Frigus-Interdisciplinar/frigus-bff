@@ -21,7 +21,7 @@ export interface CoreGroupMember {
   userId: string;
   name: string;
   email: string;
-  role: string;
+  memberRole: string;
   isOwner?: boolean;
   joinedAt?: string;
 }
