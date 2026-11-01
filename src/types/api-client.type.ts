@@ -1,4 +1,5 @@
 import type { AxiosRequestConfig } from "axios";
+import type { ZodType } from "zod";
 import type { HttpMethods } from "./http-methods.type.js";
 
 export type HttpMethod = HttpMethods;
@@ -9,10 +10,12 @@ export interface ApiRequestOptions<B = unknown> {
   body?: B;
   timeout?: number;
   signal?: AbortSignal;
+  responseSchema?: ZodType<unknown>;
+  allowEmptyResponse?: boolean;
   axiosConfig?: Omit<
     AxiosRequestConfig,
     "url" | "method" | "data" | "params" | "headers" | "timeout" | "signal"
   >;
 }
 
-export type ApiBodylessRequestOptions = Omit<ApiRequestOptions, "body">;
+export type ApiBodylessRequestOptions = Omit<ApiRequestOptions<never>, "body">;

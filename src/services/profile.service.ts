@@ -7,11 +7,11 @@ import type {
   UserPutRequest,
   UserResponse,
 } from "../types/index.js";
+import { userResponseSchema } from "../schemas/index.js";
 
-// servico de comunicacao com os endpoints de perfil da core-api
 export class ProfileService {
   async getProfile(options?: ApiBodylessRequestOptions): Promise<UserResponse> {
-    return api.get<UserResponse>("/profile", options);
+    return api.get<UserResponse>("/profile", { ...options, responseSchema: userResponseSchema });
   }
 
   async updateOnboardingAccountType(
@@ -21,7 +21,7 @@ export class ProfileService {
     return api.patch<UserResponse, UserAccountTypeUpdateRequest>(
       "/profile/onboarding/account-type",
       body,
-      options,
+      { ...options, responseSchema: userResponseSchema },
     );
   }
 
@@ -29,14 +29,14 @@ export class ProfileService {
     body: UserPutRequest,
     options?: ApiBodylessRequestOptions,
   ): Promise<UserResponse> {
-    return api.put<UserResponse, UserPutRequest>("/profile", body, options);
+    return api.put<UserResponse, UserPutRequest>("/profile", body, { ...options, responseSchema: userResponseSchema });
   }
 
   async patchProfile(
     body: UserPatchRequest,
     options?: ApiBodylessRequestOptions,
   ): Promise<UserResponse> {
-    return api.patch<UserResponse, UserPatchRequest>("/profile", body, options);
+    return api.patch<UserResponse, UserPatchRequest>("/profile", body, { ...options, responseSchema: userResponseSchema });
   }
 
   async changePassword(
@@ -46,12 +46,12 @@ export class ProfileService {
     return api.patch<void, UserChangePasswordRequest>(
       "/profile/password",
       body,
-      options,
+      { ...options, allowEmptyResponse: true },
     );
   }
 
   async deleteCurrentUser(options?: ApiBodylessRequestOptions): Promise<void> {
-    return api.delete<void>("/profile", options);
+    return api.delete<void>("/profile", { ...options, allowEmptyResponse: true });
   }
 }
 

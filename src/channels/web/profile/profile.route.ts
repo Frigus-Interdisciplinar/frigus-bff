@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../../config/env.js";
 import { z } from "zod";
 import { profilePictureService, profileService } from "../../../services/index.js";
 import { authMiddleware } from "../../../middlewares/index.js";
@@ -9,13 +10,11 @@ import {
   userPutSchema,
 } from "../../../schemas/index.js";
 
-const profileRoute = new Hono();
+const profileRoute = new Hono<AppBindings>();
 const profilePictureUploadSchema = z.object({ contentType: z.enum(["image/png", "image/jpeg"]) });
 
-// todas as rotas de perfil exigem autenticacao
 profileRoute.use("*", authMiddleware);
 
-// obter dados do perfil do usuario logado
 profileRoute.get("/", async (c) => {
   const authHeaders = c.get("authHeaders");
   const result = await profileService.getProfile({
@@ -34,7 +33,6 @@ profileRoute.patch("/onboarding/account-type", async (c) => {
   return c.json(result);
 });
 
-// Retorna um upload assinado para o browser enviar a imagem diretamente ao Storage.
 profileRoute.post("/picture-upload", async (c) => {
   const authHeaders = c.get("authHeaders");
   const user = await profileService.getProfile({ headers: authHeaders });
@@ -42,7 +40,6 @@ profileRoute.post("/picture-upload", async (c) => {
   return c.json(await profilePictureService.createUpload(user, request.contentType));
 });
 
-// atualizacao completa do perfil
 profileRoute.put("/", async (c) => {
   const body = await c.req.json();
   const validData = userPutSchema.parse(body);
@@ -53,7 +50,6 @@ profileRoute.put("/", async (c) => {
   return c.json(result);
 });
 
-// atualizacao parcial do perfil
 profileRoute.patch("/", async (c) => {
   const body = await c.req.json();
   const validData = userPatchSchema.parse(body);
@@ -64,7 +60,6 @@ profileRoute.patch("/", async (c) => {
   return c.json(result);
 });
 
-// alteracao de senha
 profileRoute.patch("/password", async (c) => {
   const body = await c.req.json();
   const validData = changePasswordSchema.parse(body);
@@ -75,7 +70,6 @@ profileRoute.patch("/password", async (c) => {
   return c.body(null, 204);
 });
 
-// deletar conta do usuario logado
 profileRoute.delete("/", async (c) => {
   const authHeaders = c.get("authHeaders");
   await profileService.deleteCurrentUser({

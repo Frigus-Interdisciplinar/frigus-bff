@@ -11,7 +11,7 @@ export interface UserResponse {
   planSelectionRequired?: boolean;
   pendingPlanTransactionId?: string | null;
   accountType: AccountType;
-  birthDate: string;
+  birthDate: string | null;
 }
 
 export interface UserPutRequest {

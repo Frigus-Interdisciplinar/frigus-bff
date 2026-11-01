@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../../config/env.js";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import { env } from "../../../config/env.js";
 import { authService } from "../../../services/index.js";
@@ -12,9 +13,35 @@ import {
   verifyResetCodeSchema,
 } from "../../../schemas/index.js";
 
-const authRoute = new Hono();
-const secureCookies = env.NODE_ENV === "production";
-const sameSite: "Lax" | "None" = secureCookies ? "None" : "Lax";
+const authRoute = new Hono<AppBindings>();
+
+function sessionCookiePolicy(request: Request) {
+  const origin = request.headers.get("Origin");
+  let crossSite = false;
+
+  if (origin) {
+    try {
+      const originUrl = new URL(origin);
+      const requestUrl = new URL(request.url);
+      const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+      const bothLocal =
+        localHosts.has(originUrl.hostname) && localHosts.has(requestUrl.hostname);
+      crossSite =
+        originUrl.protocol !== requestUrl.protocol ||
+        (originUrl.hostname !== requestUrl.hostname && !bothLocal);
+    } catch {
+      // The Origin middleware rejects invalid or untrusted origins separately.
+    }
+  }
+
+  // Hosted web and BFF services use different sites, so their session cookies
+  // must be SameSite=None and Secure even if NODE_ENV was not set by the host.
+  const crossSiteCookies = env.NODE_ENV === "production" || crossSite;
+  return {
+    secure: crossSiteCookies,
+    sameSite: crossSiteCookies ? "None" as const : "Lax" as const,
+  };
+}
 
 authRoute.post("/forgot-password", async (c) => {
   const body = forgotPasswordSchema.parse(await c.req.json());
@@ -34,7 +61,6 @@ authRoute.post("/verify-reset-code", async (c) => {
   return c.body(null, 204);
 });
 
-// rota de login para web
 authRoute.post("/login", async (c) => {
   const body = await c.req.json();
   const { rememberMe, ...validData } = loginSchema.parse(body);
@@ -44,27 +70,25 @@ authRoute.post("/login", async (c) => {
     userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
   );
   const persistentCookie = rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {};
+  const cookiePolicy = sessionCookiePolicy(c.req.raw);
 
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
-    secure: secureCookies,
-    sameSite,
+    ...cookiePolicy,
     maxAge: 15 * 60, // 15 minutos
-    path: "/",
+    path: "/web",
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
-    secure: secureCookies,
-    sameSite,
+    ...cookiePolicy,
     ...persistentCookie,
-    path: "/"
+    path: "/web/auth"
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
-    secure: secureCookies,
-    sameSite,
+    ...cookiePolicy,
     ...persistentCookie,
-    path: "/",
+    path: "/web/auth",
   });
 
   return c.json({ user: result.user });
@@ -78,33 +102,30 @@ authRoute.post("/google", async (c) => {
     userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
   );
   const persistentCookie = rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {};
+  const cookiePolicy = sessionCookiePolicy(c.req.raw);
 
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
-    secure: secureCookies,
-    sameSite,
+    ...cookiePolicy,
     maxAge: 15 * 60,
-    path: "/",
+    path: "/web",
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
-    secure: secureCookies,
-    sameSite,
+    ...cookiePolicy,
     ...persistentCookie,
-    path: "/",
+    path: "/web/auth",
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
-    secure: secureCookies,
-    sameSite,
+    ...cookiePolicy,
     ...persistentCookie,
-    path: "/",
+    path: "/web/auth",
   });
 
   return c.json({ user: result.user });
 });
 
-// rota de registro para web
 authRoute.post("/register", async (c) => {
   const body = await c.req.json();
   const validData = registerSchema.parse(body);
@@ -112,7 +133,6 @@ authRoute.post("/register", async (c) => {
   return c.json(result, 201);
 });
 
-// rota de refresh token
 authRoute.post("/refresh", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const validData = refreshSchema.parse(body);
@@ -124,39 +144,37 @@ authRoute.post("/refresh", async (c) => {
     refreshToken,
     userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
   );
+  const cookiePolicy = sessionCookiePolicy(c.req.raw);
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
-    secure: secureCookies,
-    sameSite,
+    ...cookiePolicy,
     maxAge: 15 * 60,
-    path: "/",
+    path: "/web",
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
-    secure: secureCookies,
-    sameSite,
+    ...cookiePolicy,
     ...persistentCookie,
-    path: "/",
+    path: "/web/auth",
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
-    secure: secureCookies,
-    sameSite,
+    ...cookiePolicy,
     ...persistentCookie,
-    path: "/",
+    path: "/web/auth",
   });
   return c.json({ user: result.user });
 });
 
-// rota de logout
 authRoute.post("/logout", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const validData = refreshSchema.parse(body);
   const refreshToken = validData.refreshToken ?? getCookie(c, "refreshToken");
   await authService.logout(refreshToken);
-  deleteCookie(c, "accessToken", { path: "/" });
-  deleteCookie(c, "refreshToken", { path: "/" });
-  deleteCookie(c, "rememberMe", { path: "/" });
+  const cookiePolicy = sessionCookiePolicy(c.req.raw);
+  deleteCookie(c, "accessToken", { path: "/web", ...cookiePolicy });
+  deleteCookie(c, "refreshToken", { path: "/web/auth", ...cookiePolicy });
+  deleteCookie(c, "rememberMe", { path: "/web/auth", ...cookiePolicy });
   return c.body(null, 204);
 });
 

@@ -1,15 +1,17 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../../config/env.js";
 import { z } from "zod";
 import { authMiddleware } from "../../../middlewares/index.js";
 import { coreApiService } from "../../../services/index.js";
 import type { CorePage, CoreStockProduct } from "../../../types/core-api.type.js";
-import { NotFoundException } from "../../../exceptions/index.js";
+import { NotFoundException, UnprocessableEntityException } from "../../../exceptions/index.js";
 
-const inventoryRoute = new Hono();
+const inventoryRoute = new Hono<AppBindings>();
 inventoryRoute.use("*", authMiddleware);
 
-const positiveInteger = z.coerce.number().int().positive();
-const nonNegativeInteger = z.coerce.number().int().nonnegative();
+const positiveInteger = z.coerce.number().int().positive().max(2_147_483_647);
+const nonNegativeInteger = z.coerce.number().int().nonnegative().max(1_000_000);
+const pageSize = z.coerce.number().int().positive().max(100);
 const uuid = z.string().uuid();
 const category = z.enum(["FRUIT", "VEGETABLE", "DAIRY", "GRAIN", "MEAT", "BEVERAGE", "CLEANING", "PERSONAL_HYGIENE", "FISH", "FROZEN", "SWEETS", "CANNED", "SEASONING"]);
 const storagePlace = z.enum(["FRIDGE", "FREEZER", "PANTRY", "CABINET", "SHELF"]);
@@ -17,8 +19,8 @@ import { movementSchema, receiptConfirmSchema, receiptScanSchema, stockProductUp
 import { groupProductSchema } from "../../../schemas/core-api.schema.js";
 
 const manualStockProductSchema = z.union([
-  z.object({ productId: positiveInteger, quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional(), purchaseUnitPrice: z.number().positive().max(99999999.99).refine((value) => /^\d+(\.\d{1,2})?$/.test(String(value))).optional() }),
-  groupProductSchema.extend({ quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional(), purchaseUnitPrice: z.number().positive().max(99999999.99).refine((value) => /^\d+(\.\d{1,2})?$/.test(String(value))).optional() }),
+  z.object({ productId: positiveInteger, quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional(), purchaseUnitPrice: z.number().positive().max(99_999_999.99).refine((value) => /^\d+(\.\d{1,2})?$/.test(String(value))).optional() }),
+  groupProductSchema.extend({ quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional(), purchaseUnitPrice: z.number().positive().max(99_999_999.99).refine((value) => /^\d+(\.\d{1,2})?$/.test(String(value))).optional() }),
 ]);
 
 inventoryRoute.post("/receipts/scan", async (c) => {
@@ -46,12 +48,36 @@ async function listAllStockProducts(stockId: number, headers: AuthHeaders, filte
 }): Promise<CoreStockProduct[]> {
   const pageSize = 100;
   const first = await coreApiService.listStockProducts(String(stockId), headers, 0, pageSize, filters?.category, filters?.storagePlace, filters?.q);
-  const products = [...first.content];
-  for (let page = 1; page < first.totalPages; page += 1) {
-    const result = await coreApiService.listStockProducts(String(stockId), headers, page, pageSize, filters?.category, filters?.storagePlace, filters?.q);
-    products.push(...result.content);
+  if (first.totalPages > 100) {
+    throw new UnprocessableEntityException(
+      "O estoque excede o limite de agregação do BFF",
+      "Selecione um estoque específico para consultar mais itens.",
+    );
   }
-  return products;
+  const pageNumbers = Array.from({ length: Math.max(0, first.totalPages - 1) }, (_, index) => index + 1);
+  const additionalPages: CoreStockProduct[][] = [];
+  for (let offset = 0; offset < pageNumbers.length; offset += 5) {
+    const pageBatch = pageNumbers.slice(offset, offset + 5);
+    const results = await Promise.all(pageBatch.map((page) =>
+      coreApiService.listStockProducts(String(stockId), headers, page, pageSize, filters?.category, filters?.storagePlace, filters?.q),
+    ));
+    additionalPages.push(...results.map((result) => result.content));
+  }
+  return [...first.content, ...additionalPages.flat()];
+}
+
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const item = items[index];
+      if (item !== undefined) results[index] = await mapper(item);
+    }
+  }));
+  return results;
 }
 
 function asFilteredPage(items: CoreStockProduct[], page: number, size: number): CorePage<CoreStockProduct> {
@@ -61,17 +87,17 @@ function asFilteredPage(items: CoreStockProduct[], page: number, size: number): 
 }
 
 inventoryRoute.get("/home", async (c) => {
-  const groupId = c.req.query("groupId");
-  if (groupId) uuid.parse(groupId);
+  const rawGroupId = c.req.query("groupId");
+  const groupId = rawGroupId === undefined ? undefined : uuid.parse(rawGroupId);
   const headers = c.get("authHeaders");
   const [context, summary] = await Promise.all([
     coreApiService.getActiveContext(headers, groupId),
     coreApiService.getStockSummary(headers, groupId),
   ]);
-  const stockItems = await Promise.all(context.stocks.map(async (stock) => ({
+  const stockItems = await mapWithConcurrency(context.stocks, 4, async (stock) => ({
     stock,
     products: await listAllStockProducts(stock.id, headers),
-  })));
+  }));
   const allProducts = stockItems.flatMap(({ products }) => products);
   const categoryCounts = Object.fromEntries([...new Set(allProducts.map((item) => item.category))]
     .map((key) => [key, allProducts.filter((item) => item.category === key).length]));
@@ -86,28 +112,26 @@ inventoryRoute.get("/home", async (c) => {
     summary,
     categoryCounts,
     statusCounts,
-    nearExpiration: (summary as { nearExpiration?: unknown[] }).nearExpiration ?? [],
+    nearExpiration: summary.nearExpiration,
   });
 });
 
 inventoryRoute.get("/stocks/:stockId/products", async (c) => {
   const stockId = positiveInteger.parse(c.req.param("stockId"));
   const page = c.req.query("page") === undefined ? 0 : nonNegativeInteger.parse(c.req.query("page"));
-  const size = c.req.query("size") === undefined ? 30 : positiveInteger.parse(c.req.query("size"));
+  const size = c.req.query("size") === undefined ? 30 : pageSize.parse(c.req.query("size"));
   const categoryFilter = c.req.query("category") ? category.parse(c.req.query("category")) : undefined;
   const placeFilter = c.req.query("storagePlace") ? storagePlace.parse(c.req.query("storagePlace")) : undefined;
-  const query = c.req.query("q")?.trim().toLocaleLowerCase("pt-BR");
+  const query = c.req.query("q") === undefined ? undefined : z.string().trim().max(120).parse(c.req.query("q")).toLocaleLowerCase("pt-BR");
   const result = await coreApiService.listStockProducts(String(stockId), c.get("authHeaders"), page, size, categoryFilter, placeFilter, query);
   return c.json(result);
 });
 
 inventoryRoute.post("/stocks/:stockId/products", async (c) => {
   const stockId = positiveInteger.parse(c.req.param("stockId"));
-  const groupId = c.req.query("groupId");
-  if (groupId) uuid.parse(groupId);
   const input = manualStockProductSchema.parse(await c.req.json());
   const headers = c.get("authHeaders");
-  const context = await coreApiService.getActiveContext(headers, groupId);
+  const context = await coreApiService.getActiveContext(headers);
   const stock = context.stocks.find((item) => item.id === stockId);
   if (!stock) {
     throw new NotFoundException("Estoque não encontrado no grupo ativo", "Selecione um estoque do grupo ativo");
@@ -130,25 +154,25 @@ inventoryRoute.post("/stocks/:stockId/products", async (c) => {
     stockId,
     quantity: input.quantity,
     expireDate: input.expireDate,
-    ...(input.purchaseUnitPrice === undefined ? {} : { purchaseUnitPrice: input.purchaseUnitPrice }),
     ...(input.minimalQuantity === undefined ? {} : { minimalQuantity: input.minimalQuantity }),
     ...(input.batch === undefined ? {} : { batch: input.batch }),
+    ...(input.purchaseUnitPrice === undefined ? {} : { purchaseUnitPrice: input.purchaseUnitPrice }),
   }, headers);
   return c.json(stockProduct, 201);
 });
 
 inventoryRoute.get("/products", async (c) => {
   const page = c.req.query("page") === undefined ? 0 : nonNegativeInteger.parse(c.req.query("page"));
-  const size = c.req.query("size") === undefined ? 30 : positiveInteger.parse(c.req.query("size"));
+  const size = c.req.query("size") === undefined ? 30 : pageSize.parse(c.req.query("size"));
   const categoryFilter = c.req.query("category") ? category.parse(c.req.query("category")) : undefined;
   const placeFilter = c.req.query("storagePlace") ? storagePlace.parse(c.req.query("storagePlace")) : undefined;
-  const query = c.req.query("q")?.trim().toLocaleLowerCase("pt-BR");
-  const groupId = c.req.query("groupId");
-  if (groupId) uuid.parse(groupId);
+  const query = c.req.query("q") === undefined ? undefined : z.string().trim().max(120).parse(c.req.query("q")).toLocaleLowerCase("pt-BR");
+  const rawGroupId = c.req.query("groupId");
+  const groupId = rawGroupId === undefined ? undefined : uuid.parse(rawGroupId);
   const headers = c.get("authHeaders");
   const context = await coreApiService.getActiveContext(headers, groupId);
   const filters = { category: categoryFilter, storagePlace: placeFilter, q: query };
-  const products = (await Promise.all(context.stocks.map((stock) => listAllStockProducts(stock.id, headers, filters)))).flat();
+  const products = (await mapWithConcurrency(context.stocks, 4, (stock) => listAllStockProducts(stock.id, headers, filters))).flat();
   const filtered = products;
   return c.json(asFilteredPage(filtered, page, size));
 });
@@ -173,7 +197,7 @@ inventoryRoute.delete("/stock-products/:id", async (c) => {
 inventoryRoute.get("/stock-products/:id/movements", async (c) => {
   const id = String(positiveInteger.parse(c.req.param("id")));
   const page = c.req.query("page") === undefined ? undefined : nonNegativeInteger.parse(c.req.query("page"));
-  const size = c.req.query("size") === undefined ? undefined : positiveInteger.parse(c.req.query("size"));
+  const size = c.req.query("size") === undefined ? undefined : pageSize.parse(c.req.query("size"));
   return c.json(await coreApiService.listMovements(id, c.get("authHeaders"), page, size));
 });
 

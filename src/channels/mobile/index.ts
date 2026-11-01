@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../config/env.js";
+import { publicAuthRateLimitMiddleware } from "../../middlewares/public-auth-rate-limit.middleware.js";
 import { userRoute } from "./user/user.route.js";
 import { advertisementsRoute } from "./advertisements/advertisements.route.js";
 import { inventoryRoute } from "./inventory/inventory.route.js";
@@ -10,7 +12,10 @@ import { homeRoute } from "./home/home.route.js";
 import { shoppingListRoute } from "./shopping-list/shopping-list.route.js";
 import { firebaseRoute } from "./firebase/firebase.route.js";
 
-const mobileApp = new Hono();
+const mobileApp = new Hono<AppBindings>();
+
+mobileApp.use("/user/login", publicAuthRateLimitMiddleware);
+mobileApp.use("/user/register", publicAuthRateLimitMiddleware);
 
 mobileApp.route("/home", homeRoute);
 mobileApp.route("/user", userRoute);

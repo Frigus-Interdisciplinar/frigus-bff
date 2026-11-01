@@ -2,6 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const bucketName = () => process.env.SUPABASE_CHAT_BUCKET ?? "chat-attachments";
 const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"] as const;
+type AllowedMimeType = (typeof allowedMimeTypes)[number];
+
+function isAllowedMimeType(value: string): value is AllowedMimeType {
+  return allowedMimeTypes.some((allowed) => allowed === value);
+}
 
 function storageClient() {
   const url = process.env.SUPABASE_URL;
@@ -33,7 +38,7 @@ export class MessageAttachmentService {
   }
 
   async createUpload(userId: string, conversationId: string, fileName: string, mimeType: string) {
-    if (!allowedMimeTypes.includes(mimeType as typeof allowedMimeTypes[number])) throw new Error("Tipo de arquivo não permitido.");
+    if (!isAllowedMimeType(mimeType)) throw new Error("Tipo de arquivo não permitido.");
     await this.ensureBucket();
     const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "pdf";
     const path = `chat/${conversationId}/${userId}/${crypto.randomUUID()}.${extension}`;

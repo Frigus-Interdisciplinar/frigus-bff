@@ -1,9 +1,10 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../../config/env.js";
 import { z } from "zod";
 import { authMiddleware } from "../../../middlewares/index.js";
 import { coreApiService, profileService } from "../../../services/index.js";
 
-const homeRoute = new Hono();
+const homeRoute = new Hono<AppBindings>();
 const uuid = z.string().uuid("Identificador de grupo inválido");
 const notificationSizeSchema = z.coerce.number().int().positive().max(50);
 

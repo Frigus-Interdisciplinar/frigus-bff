@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+export const userResponseSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  profilePictureUrl: z.string().url().nullable().optional(),
+  email: z.string().email(),
+  emailVerified: z.boolean().optional(),
+  planSelectionRequired: z.boolean().optional(),
+  pendingPlanTransactionId: z.string().nullable().optional(),
+  accountType: z.enum(["DOMESTIC", "BUSINESS", "COMMERCIAL"]),
+  birthDate: z.string().nullable(),
+});
+
 // validacao para atualizacao completa do perfil
 export const userPutSchema = z.object({
   name: z.string().min(1, "O nome e obrigatorio"),

@@ -1,4 +1,11 @@
 import { z } from "zod";
+import { userResponseSchema } from "./user.schema.js";
+
+export const loginResponseSchema = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+  user: userResponseSchema,
+});
 
 // validacao do login de usuario
 export const loginSchema = z.object({
