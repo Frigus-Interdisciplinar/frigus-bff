@@ -132,7 +132,7 @@ export class CoreApiService {
     return api.delete<void>(`/stock-products/${id}`, options(headers));
   }
 
-  createStockProduct(body: { productId: number; stockId: number; quantity: number; minimalQuantity?: number; expireDate: string; batch?: string }, headers: ApiBodylessRequestOptions["headers"]) {
+  createStockProduct(body: { productId: number; stockId: number; quantity: number; minimalQuantity?: number; expireDate: string; batch?: string; purchaseUnitPrice?: number }, headers: ApiBodylessRequestOptions["headers"]) {
     return api.post<CoreStockProduct>("/stock-products", body, options(headers));
   }
 
@@ -273,7 +273,7 @@ export class CoreApiService {
   cancelShoppingList(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}`, options(headers)); }
   shoppingSuggestions(stockId: number, headers: ApiBodylessRequestOptions["headers"]) { return api.get<unknown[]>("/shopping-lists/suggestions", options(headers, { stockId })); }
   addShoppingItem(id: string, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>(`/shopping-lists/${id}/items`, body, options(headers)); }
-  updateShoppingItem(id: string, itemId: number, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.patch<unknown>(`/shopping-lists/${id}/items/${itemId}`, body, options(headers)); }
+  updateShoppingItem(id: string, itemId: number, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.put<unknown>(`/shopping-lists/${id}/items/${itemId}`, body, options(headers)); }
   deleteShoppingItem(id: string, itemId: number, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}/items/${itemId}`, options(headers)); }
   clearPurchasedItems(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}/purchased-items`, options(headers)); }
   completeShoppingList(id: string, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>(`/shopping-lists/${id}/complete`, body, options(headers)); }
