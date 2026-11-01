@@ -14,10 +14,34 @@ import {
 } from "../../../schemas/index.js";
 
 const authRoute = new Hono<AppBindings>();
-const sessionCookiePolicy = {
-  secure: env.NODE_ENV === "production",
-  sameSite: env.NODE_ENV === "production" ? "None" as const : "Lax" as const,
-};
+
+function sessionCookiePolicy(request: Request) {
+  const origin = request.headers.get("Origin");
+  let crossSite = false;
+
+  if (origin) {
+    try {
+      const originUrl = new URL(origin);
+      const requestUrl = new URL(request.url);
+      const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+      const bothLocal =
+        localHosts.has(originUrl.hostname) && localHosts.has(requestUrl.hostname);
+      crossSite =
+        originUrl.protocol !== requestUrl.protocol ||
+        (originUrl.hostname !== requestUrl.hostname && !bothLocal);
+    } catch {
+      // The Origin middleware rejects invalid or untrusted origins separately.
+    }
+  }
+
+  // Hosted web and BFF services use different sites, so their session cookies
+  // must be SameSite=None and Secure even if NODE_ENV was not set by the host.
+  const crossSiteCookies = env.NODE_ENV === "production" || crossSite;
+  return {
+    secure: crossSiteCookies,
+    sameSite: crossSiteCookies ? "None" as const : "Lax" as const,
+  };
+}
 
 authRoute.post("/forgot-password", async (c) => {
   const body = forgotPasswordSchema.parse(await c.req.json());
@@ -46,22 +70,23 @@ authRoute.post("/login", async (c) => {
     userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
   );
   const persistentCookie = rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {};
+  const cookiePolicy = sessionCookiePolicy(c.req.raw);
 
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
-    ...sessionCookiePolicy,
+    ...cookiePolicy,
     maxAge: 15 * 60, // 15 minutos
     path: "/web",
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
-    ...sessionCookiePolicy,
+    ...cookiePolicy,
     ...persistentCookie,
     path: "/web/auth"
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
-    ...sessionCookiePolicy,
+    ...cookiePolicy,
     ...persistentCookie,
     path: "/web/auth",
   });
@@ -77,22 +102,23 @@ authRoute.post("/google", async (c) => {
     userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
   );
   const persistentCookie = rememberMe ? { maxAge: 30 * 24 * 60 * 60 } : {};
+  const cookiePolicy = sessionCookiePolicy(c.req.raw);
 
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
-    ...sessionCookiePolicy,
+    ...cookiePolicy,
     maxAge: 15 * 60,
     path: "/web",
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
-    ...sessionCookiePolicy,
+    ...cookiePolicy,
     ...persistentCookie,
     path: "/web/auth",
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
-    ...sessionCookiePolicy,
+    ...cookiePolicy,
     ...persistentCookie,
     path: "/web/auth",
   });
@@ -118,21 +144,22 @@ authRoute.post("/refresh", async (c) => {
     refreshToken,
     userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
   );
+  const cookiePolicy = sessionCookiePolicy(c.req.raw);
   setCookie(c, "accessToken", result.accessToken, {
     httpOnly: true,
-    ...sessionCookiePolicy,
+    ...cookiePolicy,
     maxAge: 15 * 60,
     path: "/web",
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
-    ...sessionCookiePolicy,
+    ...cookiePolicy,
     ...persistentCookie,
     path: "/web/auth",
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
-    ...sessionCookiePolicy,
+    ...cookiePolicy,
     ...persistentCookie,
     path: "/web/auth",
   });
@@ -144,9 +171,10 @@ authRoute.post("/logout", async (c) => {
   const validData = refreshSchema.parse(body);
   const refreshToken = validData.refreshToken ?? getCookie(c, "refreshToken");
   await authService.logout(refreshToken);
-  deleteCookie(c, "accessToken", { path: "/web", ...sessionCookiePolicy });
-  deleteCookie(c, "refreshToken", { path: "/web/auth", ...sessionCookiePolicy });
-  deleteCookie(c, "rememberMe", { path: "/web/auth", ...sessionCookiePolicy });
+  const cookiePolicy = sessionCookiePolicy(c.req.raw);
+  deleteCookie(c, "accessToken", { path: "/web", ...cookiePolicy });
+  deleteCookie(c, "refreshToken", { path: "/web/auth", ...cookiePolicy });
+  deleteCookie(c, "rememberMe", { path: "/web/auth", ...cookiePolicy });
   return c.body(null, 204);
 });
 
