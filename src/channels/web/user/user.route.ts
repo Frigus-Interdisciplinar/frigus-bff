@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../../config/env.js";
 import { userService } from "../../../services/index.js";
 import { authMiddleware } from "../../../middlewares/index.js";
 import {
@@ -6,23 +7,26 @@ import {
   userAccountTypeUpdateSchema,
   userRoleUpdateSchema,
 } from "../../../schemas/index.js";
+import { z } from "zod";
 
-const userRoute = new Hono();
+const userRoute = new Hono<AppBindings>();
+const uuidSchema = z.string().uuid();
+const pagingSchema = z.object({
+  page: z.coerce.number().int().nonnegative().max(1_000_000).optional(),
+  size: z.coerce.number().int().positive().max(100).optional(),
+  sort: z.string().trim().min(1).max(120).regex(/^[A-Za-z0-9_,.:-]+$/).optional(),
+});
 
-// todas as rotas administrativas exigem autenticacao
 userRoute.use("*", authMiddleware);
 
-// listar usuarios paginados (admin)
 userRoute.get("/", async (c) => {
-  const page = c.req.query("page");
-  const size = c.req.query("size");
-  const sort = c.req.query("sort");
+  const { page, size, sort } = pagingSchema.parse(c.req.query());
   const authHeaders = c.get("authHeaders");
 
   const result = await userService.findAll(
     {
-      page: page ? Number(page) : undefined,
-      size: size ? Number(size) : undefined,
+      page,
+      size,
       sort,
     },
     {
@@ -32,10 +36,9 @@ userRoute.get("/", async (c) => {
   return c.json(result);
 });
 
-// buscar usuario por email (admin)
 userRoute.get("/search", async (c) => {
-  const email = c.req.query("email");
-  if (!email) {
+  const emailResult = z.string().trim().email().safeParse(c.req.query("email"));
+  if (!emailResult.success) {
     return c.json(
       {
         status: 400,
@@ -46,6 +49,7 @@ userRoute.get("/search", async (c) => {
       400,
     );
   }
+  const email = emailResult.data;
 
   const authHeaders = c.get("authHeaders");
 
@@ -55,9 +59,8 @@ userRoute.get("/search", async (c) => {
   return c.json(result);
 });
 
-// buscar usuario por id (admin)
 userRoute.get("/:id", async (c) => {
-  const id = c.req.param("id");
+  const id = uuidSchema.parse(c.req.param("id"));
   const authHeaders = c.get("authHeaders");
 
   const result = await userService.findById(id, {
@@ -66,9 +69,8 @@ userRoute.get("/:id", async (c) => {
   return c.json(result);
 });
 
-// atualizar role do usuario (admin)
 userRoute.patch("/:id/role", async (c) => {
-  const id = c.req.param("id");
+  const id = uuidSchema.parse(c.req.param("id"));
   const body = await c.req.json();
   const validData = userRoleUpdateSchema.parse(body);
   const authHeaders = c.get("authHeaders");
@@ -79,9 +81,8 @@ userRoute.patch("/:id/role", async (c) => {
   return c.json(result);
 });
 
-// atualizar tipo de conta do usuario (admin)
 userRoute.patch("/:id/account-type", async (c) => {
-  const id = c.req.param("id");
+  const id = uuidSchema.parse(c.req.param("id"));
   const body = await c.req.json();
   const validData = userAccountTypeUpdateSchema.parse(body);
   const authHeaders = c.get("authHeaders");
@@ -92,9 +93,8 @@ userRoute.patch("/:id/account-type", async (c) => {
   return c.json(result);
 });
 
-// reset de senha por admin
 userRoute.patch("/:id/password", async (c) => {
-  const id = c.req.param("id");
+  const id = uuidSchema.parse(c.req.param("id"));
   const body = await c.req.json();
   const validData = adminResetPasswordSchema.parse(body);
   const authHeaders = c.get("authHeaders");
@@ -105,9 +105,8 @@ userRoute.patch("/:id/password", async (c) => {
   return c.body(null, 204);
 });
 
-// deletar usuario por id (admin)
 userRoute.delete("/:id", async (c) => {
-  const id = c.req.param("id");
+  const id = uuidSchema.parse(c.req.param("id"));
   const authHeaders = c.get("authHeaders");
 
   await userService.deleteUser(id, {

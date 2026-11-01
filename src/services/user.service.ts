@@ -9,7 +9,6 @@ import type {
   UserResponse,
 } from "../types/index.js";
 
-// servico de administracao de usuarios na core-api
 export class UserService {
   async findAll(
     params?: PageableParams,
