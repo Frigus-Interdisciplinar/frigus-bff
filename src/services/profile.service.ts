@@ -2,6 +2,7 @@ import { api } from "../utils/index.js";
 import type {
   ApiBodylessRequestOptions,
   UserChangePasswordRequest,
+  UserAccountTypeUpdateRequest,
   UserPatchRequest,
   UserPutRequest,
   UserResponse,
@@ -11,6 +12,17 @@ import type {
 export class ProfileService {
   async getProfile(options?: ApiBodylessRequestOptions): Promise<UserResponse> {
     return api.get<UserResponse>("/profile", options);
+  }
+
+  async updateOnboardingAccountType(
+    body: UserAccountTypeUpdateRequest,
+    options?: ApiBodylessRequestOptions,
+  ): Promise<UserResponse> {
+    return api.patch<UserResponse, UserAccountTypeUpdateRequest>(
+      "/profile/onboarding/account-type",
+      body,
+      options,
+    );
   }
 
   async updateProfile(

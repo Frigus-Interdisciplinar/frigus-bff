@@ -14,6 +14,7 @@ import {
   checkoutSchema,
 } from "../../schemas/index.js";
 import { app } from "../../app.js";
+import { axiosInstance } from "../axios-instance.js";
 
 async function runServiceTests() {
   console.log("🧪 Starting validation tests for Core API integration...\n");
@@ -140,7 +141,10 @@ async function runServiceTests() {
   // Web Auth invalid input should return 400 with field errors
   const invalidLoginRes = await app.request("/web/auth/login", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "http://localhost:5173",
+    },
     body: JSON.stringify({ email: "invalid", rawPassword: "" }),
   });
   assert.equal(invalidLoginRes.status, 400);
@@ -151,7 +155,10 @@ async function runServiceTests() {
   // Test authMiddleware: unauthenticated request to protected route should return 401
   const unauthCheckoutRes = await app.request("/web/transactions/checkout", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "http://localhost:5173",
+    },
     body: JSON.stringify({ planCode: "PLUS", paymentMethod: "PIX" }),
   });
   assert.equal(unauthCheckoutRes.status, 401);
@@ -165,12 +172,62 @@ async function runServiceTests() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Origin: "http://localhost:5173",
         Authorization: "Bearer mock-token",
       },
       body: JSON.stringify({ planCode: "", paymentMethod: "INVALID" }),
     },
   );
   assert.equal(invalidCheckoutWithTokenRes.status, 400);
+
+  const onboardingUser = {
+    id: "22222222-2222-4222-8222-222222222222",
+    name: "QA Onboarding",
+    email: "qa-onboarding@example.invalid",
+    accountType: "COMMERCIAL",
+    birthDate: null,
+  };
+  const originalAdapter = axiosInstance.defaults.adapter;
+  let forwardedUrl: string | undefined;
+  let forwardedMethod: string | undefined;
+  let forwardedAuthorization: unknown;
+  let forwardedBody: unknown;
+  axiosInstance.defaults.adapter = async (config) => {
+    forwardedUrl = config.url;
+    forwardedMethod = config.method;
+    forwardedAuthorization = config.headers.get("Authorization");
+    forwardedBody = JSON.parse(String(config.data));
+    return {
+      data: onboardingUser,
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      config,
+      request: {},
+    };
+  };
+  try {
+    const onboardingRes = await app.request(
+      "/web/profile/onboarding/account-type",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "http://localhost:5173",
+          Authorization: "Bearer onboarding-test-token",
+        },
+        body: JSON.stringify({ accountType: "COMMERCIAL" }),
+      },
+    );
+    assert.equal(onboardingRes.status, 200);
+    assert.deepEqual(await onboardingRes.json(), onboardingUser);
+    assert.equal(forwardedUrl, "/profile/onboarding/account-type");
+    assert.equal(forwardedMethod, "patch");
+    assert.equal(forwardedAuthorization, "Bearer onboarding-test-token");
+    assert.deepEqual(forwardedBody, { accountType: "COMMERCIAL" });
+  } finally {
+    axiosInstance.defaults.adapter = originalAdapter;
+  }
 
   // Mobile Auth invalid input
   const mobileLoginRes = await app.request("/mobile/user/login", {

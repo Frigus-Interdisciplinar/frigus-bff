@@ -4,6 +4,7 @@ import { profilePictureService, profileService } from "../../../services/index.j
 import { authMiddleware } from "../../../middlewares/index.js";
 import {
   changePasswordSchema,
+  userAccountTypeUpdateSchema,
   userPatchSchema,
   userPutSchema,
 } from "../../../schemas/index.js";
@@ -18,6 +19,16 @@ profileRoute.use("*", authMiddleware);
 profileRoute.get("/", async (c) => {
   const authHeaders = c.get("authHeaders");
   const result = await profileService.getProfile({
+    headers: authHeaders,
+  });
+  return c.json(result);
+});
+
+profileRoute.patch("/onboarding/account-type", async (c) => {
+  const body = await c.req.json();
+  const validData = userAccountTypeUpdateSchema.parse(body);
+  const authHeaders = c.get("authHeaders");
+  const result = await profileService.updateOnboardingAccountType(validData, {
     headers: authHeaders,
   });
   return c.json(result);
