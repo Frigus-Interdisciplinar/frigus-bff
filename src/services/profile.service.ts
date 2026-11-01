@@ -2,29 +2,41 @@ import { api } from "../utils/index.js";
 import type {
   ApiBodylessRequestOptions,
   UserChangePasswordRequest,
+  UserAccountTypeUpdateRequest,
   UserPatchRequest,
   UserPutRequest,
   UserResponse,
 } from "../types/index.js";
+import { userResponseSchema } from "../schemas/index.js";
 
-// servico de comunicacao com os endpoints de perfil da core-api
 export class ProfileService {
   async getProfile(options?: ApiBodylessRequestOptions): Promise<UserResponse> {
-    return api.get<UserResponse>("/profile", options);
+    return api.get<UserResponse>("/profile", { ...options, responseSchema: userResponseSchema });
+  }
+
+  async updateOnboardingAccountType(
+    body: UserAccountTypeUpdateRequest,
+    options?: ApiBodylessRequestOptions,
+  ): Promise<UserResponse> {
+    return api.patch<UserResponse, UserAccountTypeUpdateRequest>(
+      "/profile/onboarding/account-type",
+      body,
+      { ...options, responseSchema: userResponseSchema },
+    );
   }
 
   async updateProfile(
     body: UserPutRequest,
     options?: ApiBodylessRequestOptions,
   ): Promise<UserResponse> {
-    return api.put<UserResponse, UserPutRequest>("/profile", body, options);
+    return api.put<UserResponse, UserPutRequest>("/profile", body, { ...options, responseSchema: userResponseSchema });
   }
 
   async patchProfile(
     body: UserPatchRequest,
     options?: ApiBodylessRequestOptions,
   ): Promise<UserResponse> {
-    return api.patch<UserResponse, UserPatchRequest>("/profile", body, options);
+    return api.patch<UserResponse, UserPatchRequest>("/profile", body, { ...options, responseSchema: userResponseSchema });
   }
 
   async changePassword(

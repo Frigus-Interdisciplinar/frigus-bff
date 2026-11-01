@@ -11,8 +11,8 @@ import type {
   UserResponse,
   VerifyPasswordRecoveryCodeRequest,
 } from "../types/index.js";
+import { loginResponseSchema, userResponseSchema } from "../schemas/index.js";
 
-// servico de comunicacao com os endpoints de autenticacao da core-api
 export class AuthService {
   async register(
     body: UserRegisterRequest,
@@ -21,7 +21,7 @@ export class AuthService {
     return api.post<UserResponse, UserRegisterRequest>(
       "/auth/register",
       body,
-      options,
+      { ...options, responseSchema: userResponseSchema },
     );
   }
 
@@ -29,17 +29,23 @@ export class AuthService {
     body: LoginRequest,
     options?: ApiBodylessRequestOptions,
   ): Promise<LoginResponse> {
-    return api.post<LoginResponse, LoginRequest>("/auth/login", body, options);
+    return api.post<LoginResponse, LoginRequest>("/auth/login", body, {
+      ...options,
+      responseSchema: loginResponseSchema,
+    });
   }
 
   async loginWithGoogle(
     body: Pick<GoogleLoginRequest, "idToken">,
     options?: ApiBodylessRequestOptions,
   ): Promise<LoginResponse> {
-    return api.post<LoginResponse, Pick<GoogleLoginRequest, "idToken">>(
+    return api.post<
+      LoginResponse,
+      Pick<GoogleLoginRequest, "idToken">
+    >(
       "/auth/google",
       body,
-      options,
+      { ...options, responseSchema: loginResponseSchema },
     );
   }
 
@@ -51,7 +57,7 @@ export class AuthService {
     return api.post<LoginResponse, RefreshRequest>(
       "/auth/refresh",
       payload,
-      options,
+      { ...options, responseSchema: loginResponseSchema },
     );
   }
 
