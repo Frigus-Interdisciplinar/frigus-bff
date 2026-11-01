@@ -1,4 +1,5 @@
 import type { ErrorHandler } from "hono";
+import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
 import {
@@ -29,7 +30,23 @@ export const errorHandler: ErrorHandler = (err, c) => {
     return c.json(badRequest.toJSON(), 400);
   }
 
-  // Generic or unexpected error
+  if (err instanceof SyntaxError) {
+    const badRequest = new BadRequestException(
+      "Corpo JSON inválido",
+      "Envie um corpo JSON válido.",
+    );
+    return c.json(badRequest.toJSON(), 400);
+  }
+
+  if (err instanceof HTTPException && err.status === 413) {
+    return c.json({
+      status: 413,
+      code: "PAYLOAD_TOO_LARGE",
+      message: "Corpo da requisição excede o limite permitido",
+      displayMessage: "A requisição é muito grande.",
+    }, 413);
+  }
+
   console.error("[ErrorHandler] Unhandled exception", {
     name: err instanceof Error ? err.name : "UnknownError",
   });

@@ -8,9 +8,13 @@ import { planRoute } from "./plan/plan.route.js";
 
 import { domesticRoute } from "./domestic/domestic.route.js";
 import { env } from "../../config/env.js";
+import type { AppBindings } from "../../config/env.js";
 import { ForbiddenException } from "../../exceptions/index.js";
+import { publicAuthRateLimitMiddleware } from "../../middlewares/public-auth-rate-limit.middleware.js";
 
-const webApp = new Hono();
+const webApp = new Hono<AppBindings>();
+
+webApp.use("/auth/*", publicAuthRateLimitMiddleware);
 
 // Browser requests authenticated with cookies must originate from a trusted web origin.
 webApp.use("*", async (c, next) => {
