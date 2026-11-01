@@ -15,6 +15,7 @@ import {
   checkoutSchema,
 } from "../../schemas/index.js";
 import { app } from "../../app.js";
+import { axiosInstance } from "../axios-instance.js";
 import { z } from "zod";
 import { envSchema } from "../../config/env.js";
 import { coreGroupSchema, coreStockSummarySchema } from "../../schemas/core-api-response.schema.js";
@@ -234,6 +235,109 @@ async function runServiceTests() {
     },
   );
   assert.equal(invalidCheckoutWithTokenRes.status, 400);
+
+  const onboardingUser = {
+    id: "22222222-2222-4222-8222-222222222222",
+    name: "QA Onboarding",
+    email: "qa-onboarding@example.invalid",
+    accountType: "COMMERCIAL",
+    birthDate: null,
+  };
+  const originalAdapter = axiosInstance.defaults.adapter;
+  let forwardedUrl: string | undefined;
+  let forwardedMethod: string | undefined;
+  let forwardedAuthorization: unknown;
+  let forwardedBody: unknown;
+  axiosInstance.defaults.adapter = async (config) => {
+    forwardedUrl = config.url;
+    forwardedMethod = config.method;
+    forwardedAuthorization = config.headers.get("Authorization");
+    forwardedBody = JSON.parse(String(config.data));
+    return {
+      data: onboardingUser,
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      config,
+      request: {},
+    };
+  };
+  try {
+    const onboardingRes = await app.request(
+      "/web/profile/onboarding/account-type",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "http://localhost:5173",
+          Authorization: "Bearer onboarding-test-token",
+        },
+        body: JSON.stringify({ accountType: "COMMERCIAL" }),
+      },
+    );
+    assert.equal(onboardingRes.status, 200);
+    assert.deepEqual(await onboardingRes.json(), onboardingUser);
+    assert.equal(forwardedUrl, "/profile/onboarding/account-type");
+    assert.equal(forwardedMethod, "patch");
+  assert.equal(forwardedAuthorization, "Bearer onboarding-test-token");
+  assert.deepEqual(forwardedBody, { accountType: "COMMERCIAL" });
+  } finally {
+    axiosInstance.defaults.adapter = originalAdapter;
+  }
+
+  const googleUser = {
+    id: "33333333-3333-4333-8333-333333333333",
+    name: "Google Onboarding",
+    email: "google-onboarding@example.invalid",
+    accountType: "DOMESTIC",
+    planSelectionRequired: true,
+  };
+  let googleForwardedUrl: string | undefined;
+  let googleForwardedMethod: string | undefined;
+  let googleForwardedBody: unknown;
+  let googleForwardedUserAgent: unknown;
+  axiosInstance.defaults.adapter = async (config) => {
+    googleForwardedUrl = config.url;
+    googleForwardedMethod = config.method;
+    googleForwardedBody = JSON.parse(String(config.data));
+    googleForwardedUserAgent = config.headers.get("User-Agent");
+    return {
+      data: {
+        accessToken: "google-access-token",
+        refreshToken: "google-refresh-token",
+        user: googleUser,
+      },
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      config,
+      request: {},
+    };
+  };
+  try {
+    const googleRes = await app.request("/web/auth/google", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "http://localhost:5173",
+        "User-Agent": "Frigus Google login test",
+      },
+      body: JSON.stringify({ idToken: "google-test-token", rememberMe: true }),
+    });
+    assert.equal(googleRes.status, 200);
+    assert.deepEqual(await googleRes.json(), { user: googleUser });
+    assert.equal(googleForwardedUrl, "/auth/google");
+    assert.equal(googleForwardedMethod, "post");
+    assert.deepEqual(googleForwardedBody, { idToken: "google-test-token" });
+    assert.equal(googleForwardedUserAgent, "Frigus Google login test");
+    const cookies = googleRes.headers.get("set-cookie") ?? "";
+    assert.match(cookies, /accessToken=google-access-token/);
+    assert.match(cookies, /refreshToken=google-refresh-token/);
+    assert.match(cookies, /rememberMe=true/);
+  } finally {
+    axiosInstance.defaults.adapter = originalAdapter;
+  }
+
 
   // Mobile Auth invalid input
   const mobileLoginRes = await app.request("/mobile/user/login", {

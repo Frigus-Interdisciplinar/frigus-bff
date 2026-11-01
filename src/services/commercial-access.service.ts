@@ -1,27 +1,25 @@
 import type { ApiBodylessRequestOptions } from "../types/index.js";
 import { ForbiddenException } from "../exceptions/index.js";
-import { profileService } from "./profile.service.js";
 import { coreApiService } from "./core-api.service.js";
 
-/** MoneySaving is a commercial-account feature and still obeys the Core plan entitlement. */
+/** MoneySaving access follows the active subscription's Core plan entitlement. */
 export async function assertCommercialMoneySavingAccess(headers: ApiBodylessRequestOptions["headers"]): Promise<void> {
-  const [profile, planLimits] = await Promise.all([
-    profileService.getProfile({ headers }),
+  const [subscription, planLimits] = await Promise.all([
+    coreApiService.getMySubscription(headers),
     coreApiService.getMyPlanLimits(headers),
   ]);
 
-  if (profile.accountType !== "COMMERCIAL" && profile.accountType !== "BUSINESS") {
-    throw new ForbiddenException(
-      "MoneySaving está disponível apenas para contas comerciais",
-      "Este recurso está disponível no perfil comercial",
-      "COMMERCIAL_ACCOUNT_REQUIRED",
-    );
-  }
+  const periodEnd = subscription.currentPeriodEnd
+    ? Date.parse(subscription.currentPeriodEnd)
+    : Number.NaN;
+  const hasActiveSubscription = subscription.status === "ACTIVE"
+    && Number.isFinite(periodEnd)
+    && periodEnd > Date.now();
 
-  if (!planLimits.allowMoneySaving) {
+  if (!planLimits.allowMoneySaving || !hasActiveSubscription) {
     throw new ForbiddenException(
-      "O plano atual não inclui MoneySaving",
-      "Escolha um plano comercial com acesso ao MoneySaving",
+      "A assinatura atual não inclui MoneySaving",
+      "Mantenha uma assinatura ativa em um plano com acesso ao MoneySaving",
       "MONEY_SAVING_PLAN_REQUIRED",
     );
   }

@@ -96,6 +96,12 @@ coreProxyRoute.all("*", async (c) => {
   const responseHeaders: Record<string, string | string[]> = {};
   const contentType = response.headers["content-type"];
   if (typeof contentType === "string") responseHeaders["Content-Type"] = contentType;
+  const setCookie = response.headers["set-cookie"];
+  if (Array.isArray(setCookie)) {
+    responseHeaders["Set-Cookie"] = setCookie;
+  } else if (typeof setCookie === "string") {
+    responseHeaders["Set-Cookie"] = setCookie;
+  }
 
   if (response.status === 204 || response.status === 205 || response.status === 304) {
     return c.body(null, response.status as ContentfulStatusCode, responseHeaders);

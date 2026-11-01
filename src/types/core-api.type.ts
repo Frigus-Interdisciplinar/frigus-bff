@@ -40,6 +40,7 @@ export interface CoreStockProduct {
   quantity: number;
   initialQuantity?: number;
   minimalQuantity?: number | null;
+  purchaseUnitPrice?: number | null;
   expireDate: string;
   batch?: string | null;
   productStatus?: string | null;

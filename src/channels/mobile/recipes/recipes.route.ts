@@ -3,6 +3,7 @@ import type { AppBindings } from "../../../config/env.js";
 import { z } from "zod";
 import { authMiddleware } from "../../../middlewares/index.js";
 import { coreApiService } from "../../../services/index.js";
+import { aiRecipeChatSchema } from "../../../schemas/core-api.schema.js";
 
 const recipesRoute = new Hono<AppBindings>();
 recipesRoute.use("*", authMiddleware);
@@ -35,7 +36,7 @@ recipesRoute.get("/ai/suggestions/:stockId", async (c) =>
   c.json(await coreApiService.recipeAiSuggestions(positiveInteger.parse(c.req.param("stockId")), c.get("authHeaders"))));
 
 recipesRoute.post("/ai/chat", async (c) => {
-  const body = z.object({ message: z.string().trim().min(1).max(4000), stockId: positiveInteger, sessionId: z.string().trim().min(1).optional() }).parse(await c.req.json());
+  const body = aiRecipeChatSchema.parse(await c.req.json());
   return c.json(await coreApiService.chatWithRecipeAi(body, c.get("authHeaders")));
 });
 

@@ -19,8 +19,8 @@ import { movementSchema, receiptConfirmSchema, receiptScanSchema, stockProductUp
 import { groupProductSchema } from "../../../schemas/core-api.schema.js";
 
 const manualStockProductSchema = z.union([
-  z.object({ productId: positiveInteger, quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional() }),
-  groupProductSchema.extend({ quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional() }),
+  z.object({ productId: positiveInteger, quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional(), purchaseUnitPrice: z.number().positive().max(99_999_999.99).refine((value) => /^\d+(\.\d{1,2})?$/.test(String(value))).optional() }),
+  groupProductSchema.extend({ quantity: nonNegativeInteger, minimalQuantity: nonNegativeInteger.optional(), expireDate: z.string().date(), batch: z.string().max(120).optional(), purchaseUnitPrice: z.number().positive().max(99_999_999.99).refine((value) => /^\d+(\.\d{1,2})?$/.test(String(value))).optional() }),
 ]);
 
 inventoryRoute.post("/receipts/scan", async (c) => {
@@ -156,6 +156,7 @@ inventoryRoute.post("/stocks/:stockId/products", async (c) => {
     expireDate: input.expireDate,
     ...(input.minimalQuantity === undefined ? {} : { minimalQuantity: input.minimalQuantity }),
     ...(input.batch === undefined ? {} : { batch: input.batch }),
+    ...(input.purchaseUnitPrice === undefined ? {} : { purchaseUnitPrice: input.purchaseUnitPrice }),
   }, headers);
   return c.json(stockProduct, 201);
 });

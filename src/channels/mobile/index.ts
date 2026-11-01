@@ -10,6 +10,7 @@ import { coreProxyRoute } from "./core/core-proxy.route.js";
 import { commercialRoute } from "./commercial/commercial.route.js";
 import { homeRoute } from "./home/home.route.js";
 import { shoppingListRoute } from "./shopping-list/shopping-list.route.js";
+import { firebaseRoute } from "./firebase/firebase.route.js";
 
 const mobileApp = new Hono<AppBindings>();
 
@@ -21,6 +22,7 @@ mobileApp.route("/user", userRoute);
 mobileApp.route("/advertisements", advertisementsRoute);
 mobileApp.route("/inventory", inventoryRoute);
 mobileApp.route("/shopping-list", shoppingListRoute);
+mobileApp.route("/firebase", firebaseRoute);
 mobileApp.route("/notifications", notificationsRoute);
 mobileApp.route("/recipes", recipesRoute);
 mobileApp.route("/commercial", commercialRoute);
