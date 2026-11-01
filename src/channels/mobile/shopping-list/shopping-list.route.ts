@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../../config/env.js";
 import { z } from "zod";
 import { authMiddleware } from "../../../middlewares/index.js";
 import { coreApiService } from "../../../services/index.js";
@@ -9,18 +10,21 @@ import {
   shoppingListSchema,
 } from "../../../schemas/core-api.schema.js";
 
-const shoppingListRoute = new Hono();
+const shoppingListRoute = new Hono<AppBindings>();
 shoppingListRoute.use("*", authMiddleware);
 
-const positiveInteger = z.coerce.number().int().positive();
-const nonNegativeInteger = z.coerce.number().int().nonnegative();
+const positiveInteger = z.coerce.number().int().positive().max(2_147_483_647);
+const nonNegativeInteger = z.coerce.number().int().nonnegative().max(1_000_000);
+const pageSize = z.coerce.number().int().positive().max(100);
 const uuid = z.string().uuid();
+const listStatus = z.enum(["OPEN", "COMPLETED", "CANCELED"]);
 
 shoppingListRoute.get("/", async (c) => {
   const stockId = positiveInteger.parse(c.req.query("stockId"));
   const page = c.req.query("page") === undefined ? undefined : nonNegativeInteger.parse(c.req.query("page"));
-  const size = c.req.query("size") === undefined ? undefined : positiveInteger.parse(c.req.query("size"));
-  return c.json(await coreApiService.listShoppingLists(stockId, c.get("authHeaders"), page, size, c.req.query("status")));
+  const size = c.req.query("size") === undefined ? undefined : pageSize.parse(c.req.query("size"));
+  const status = c.req.query("status") === undefined ? undefined : listStatus.parse(c.req.query("status"));
+  return c.json(await coreApiService.listShoppingLists(stockId, c.get("authHeaders"), page, size, status));
 });
 
 shoppingListRoute.post("/", async (c) => {

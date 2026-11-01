@@ -15,23 +15,16 @@ declare module "hono" {
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authHeader = c.req.header("Authorization");
   const cookieToken = getCookie(c, "accessToken");
+  const bearerToken = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  const token = bearerToken ?? cookieToken?.trim();
 
-  let token: string | undefined;
-
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.substring(7).trim();
-  } else if (cookieToken) {
-    token = cookieToken.trim();
-  }
-
-  if (!token) {
+  if (!token || token.length > 8_192 || /[\s\u0000-\u001f\u007f]/.test(token)) {
     throw new UnauthorizedException(
       "Token de autenticacao nao fornecido",
       "Voce precisa estar autenticado para acessar este recurso",
     );
   }
 
-  // disponibiliza o token e os headers prontos para repasse aos servicos da core-api
   c.set("token", token);
   c.set("authHeaders", {
     Authorization: `Bearer ${token}`,

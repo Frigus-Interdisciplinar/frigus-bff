@@ -9,10 +9,11 @@ export interface CorePage<T> {
 export interface CoreGroup {
   id: string;
   name: string;
+  bannerPicture?: string;
   ownerId: string;
   ownerName: string;
   isOwner: boolean;
-  defaultConversationId?: string;
+  defaultConversationId?: string | null;
   membersCount: number;
   members: CoreGroupMember[];
 }
@@ -21,7 +22,9 @@ export interface CoreGroupMember {
   userId: string;
   name: string;
   email: string;
-  role: string;
+  memberRole: string;
+  isOwner?: boolean;
+  joinedAt?: string;
 }
 
 export interface CoreStock {
@@ -36,10 +39,10 @@ export interface CoreStockProduct {
   stockId: number;
   quantity: number;
   initialQuantity?: number;
-  minimalQuantity?: number;
+  minimalQuantity?: number | null;
   expireDate: string;
-  batch?: string;
-  productStatus?: string;
+  batch?: string | null;
+  productStatus?: string | null;
   category: string;
   product?: CoreProduct;
 }
@@ -51,17 +54,31 @@ export interface CoreProduct {
   storagePlace: string;
   unitPrice: number;
   unitOfMeasure: string;
-  brand?: string;
-  imageUrl?: string;
+  brand?: string | null;
+  imageUrl?: string | null;
+}
+
+export interface CoreStockSummary {
+  groupId: string;
+  stockCount: number;
+  productCount: number;
+  itemCount: number;
+  estimatedValue: number;
+  pendingShoppingItems: number;
+  quantitiesByUnit: Record<string, number>;
+  itemsByStoragePlace: Record<string, number>;
+  consumedThisWeek: Record<string, number>;
+  weekStart: string;
+  nearExpiration: CoreStockProduct[];
 }
 
 export interface CoreNotification {
   id: string;
-  groupId?: string;
+  groupId?: string | null;
   type: string;
   title: string;
   body: string;
-  referenceId?: string;
+  referenceId?: string | null;
   readAt?: string | null;
   createdAt: string;
 }
@@ -70,20 +87,23 @@ export interface CoreRecipeIngredient {
   id?: number;
   productId?: number;
   productName: string;
-  productCategory?: string;
-  productUnitOfMeasure?: string;
-  quantity?: number;
-  unit?: string;
-  required?: boolean;
-  inStock?: boolean;
-  expireDate?: string;
+  productCategory?: string | null;
+  productUnitOfMeasure?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
+  required?: boolean | null;
+  inStock?: boolean | null;
+  expireDate?: string | null;
 }
 
 export interface CoreRecipe {
   id: number;
   name: string;
-  description?: string;
-  instructions?: string;
+  description?: string | null;
+  instructions?: string | null;
+  domesticOnly?: boolean | null;
+  active?: boolean | null;
+  createdAt?: string;
   favorite: boolean;
   ingredients?: CoreRecipeIngredient[];
   [key: string]: unknown;
@@ -126,10 +146,14 @@ export interface CoreStockMovement {
 export interface CoreConversation {
   id: string;
   conversationType: string;
-  groupId?: string;
-  groupName?: string;
-  name?: string;
-  latestMessage?: CoreMessage;
+  groupId?: string | null;
+  groupName?: string | null;
+  name?: string | null;
+  pairKey?: string | null;
+  participants?: Array<{ userId: string; name: string; email: string; joinedAt?: string | null; leftAt?: string | null }>;
+  latestMessage?: CoreMessage | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CoreMessage {
@@ -137,7 +161,7 @@ export interface CoreMessage {
   conversationId: string;
   senderId: string;
   senderName: string;
-  messageType?: string;
+  messageType?: string | null;
   content: string | null;
   createdAt: string;
   attachments?: CoreMessageAttachment[];
@@ -165,10 +189,10 @@ export interface CoreAdvertisement {
   category: string;
   description: string;
   imageUrl: string;
-  destinationUrl?: string;
-  price?: number;
-  startDate?: string;
-  endDate?: string;
+  destinationUrl?: string | null;
+  price?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
   status: CoreAdvertisementStatus;
   impressions: number;
   clicks: number;

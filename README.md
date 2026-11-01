@@ -28,6 +28,12 @@ permitidas. O Core API recebe tokens somente por `Authorization: Bearer`; os
 cookies de sessão ficam restritos ao BFF. O BFF exige um cabeçalho `Origin`
 permitido nas requisições web que alteram dados.
 
+O rate limit das rotas públicas de autenticação é local a cada processo e usa
+o endereço do socket do cliente. Atrás de um proxy confiável que sobrescreve
+`X-Forwarded-For`, defina `TRUST_PROXY=true`; deixe desativado quando essa
+garantia não existir. Em uma instalação com várias réplicas, use um armazenamento
+compartilhado para manter os limites consistentes entre processos.
+
 ## Contratos
 
 O documento completo para o time mobile está em

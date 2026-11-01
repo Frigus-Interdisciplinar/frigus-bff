@@ -7,7 +7,6 @@ import type {
   TransactionResponse,
 } from "../types/index.js";
 
-// servico de checkout e transacoes na core-api
 export class TransactionService {
   async checkout(
     body: CheckoutRequest,

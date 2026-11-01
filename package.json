@@ -3,6 +3,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx src/utils/__tests__/verify-utils.ts && tsx src/utils/__tests__/verify-services.ts && tsx src/utils/__tests__/verify-domestic.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },

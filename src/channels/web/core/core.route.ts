@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../../config/env.js";
 import { z } from "zod";
 import { coreApiService } from "../../../services/index.js";
 import { messageAttachmentService, profileService } from "../../../services/index.js";
@@ -7,15 +8,16 @@ import { authMiddleware } from "../../../middlewares/index.js";
 const uuid = z.string().uuid("Identificador inválido");
 const positiveInteger = z.coerce.number().int().positive();
 const nonNegativeInteger = z.coerce.number().int().nonnegative();
+const pageSize = z.coerce.number().int().positive().max(100);
 const paging = (c: { req: { query(name: string): string | undefined } }) => ({
-  page: c.req.query("page") === undefined ? undefined : nonNegativeInteger.parse(c.req.query("page")),
-  size: c.req.query("size") === undefined ? undefined : positiveInteger.parse(c.req.query("size")),
+  page: c.req.query("page") === undefined ? undefined : nonNegativeInteger.max(1_000_000).parse(c.req.query("page")),
+  size: c.req.query("size") === undefined ? undefined : pageSize.parse(c.req.query("size")),
 });
 
 import { groupCreateSchema, groupUpdateSchema, stockSchema, stockProductCreateSchema, stockProductUpdateSchema, movementSchema, discardSchema, groupConversationSchema, privateConversationSchema, messageSchema, attachmentUploadSchema, reactionSchema, groupProductSchema, shoppingListSchema, shoppingItemSchema, shoppingItemUpdateSchema, completeShoppingSchema, invitationSchema, preferencesSchema, expenseSchema, checkoutSchema, aiRecipeChatSchema, httpsUrl, advertisementSchema, advertisementStatusSchema } from "../../../schemas/core-api.schema.js";
 
 /** Contracts backed by existing core-api endpoints. */
-const coreRoute = new Hono();
+const coreRoute = new Hono<AppBindings>();
 coreRoute.use("*", authMiddleware);
 
 coreRoute.get("/plans", async (c) => c.json(await coreApiService.listPlans()));
@@ -29,8 +31,16 @@ coreRoute.post("/advertisements/:id/clicks", async (c) => { await coreApiService
 coreRoute.post("/transactions/checkout", async (c) => c.json(await coreApiService.checkout(checkoutSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 coreRoute.get("/transactions/:id", async (c) => c.json(await coreApiService.getTransaction(uuid.parse(c.req.param("id")), c.get("authHeaders"))));
 
-coreRoute.get("/inventory/active-context", async (c) => c.json(await coreApiService.getActiveContext(c.get("authHeaders"), c.req.query("groupId"))));
-coreRoute.get("/inventory/summary", async (c) => c.json(await coreApiService.getStockSummary(c.get("authHeaders"), c.req.query("groupId"))));
+coreRoute.get("/inventory/active-context", async (c) => {
+  const rawGroupId = c.req.query("groupId");
+  const groupId = rawGroupId === undefined ? undefined : uuid.parse(rawGroupId);
+  return c.json(await coreApiService.getActiveContext(c.get("authHeaders"), groupId));
+});
+coreRoute.get("/inventory/summary", async (c) => {
+  const rawGroupId = c.req.query("groupId");
+  const groupId = rawGroupId === undefined ? undefined : uuid.parse(rawGroupId);
+  return c.json(await coreApiService.getStockSummary(c.get("authHeaders"), groupId));
+});
 
 coreRoute.get("/groups", async (c) => c.json(await coreApiService.listGroups(c.get("authHeaders"))));
 coreRoute.get("/groups/:id", async (c) => c.json(await coreApiService.getGroup(uuid.parse(c.req.param("id")), c.get("authHeaders"))));
@@ -40,7 +50,7 @@ coreRoute.post("/groups/:id/members", async (c) => c.json(await coreApiService.a
 coreRoute.get("/groups/:id/products", async (c) => c.json(await coreApiService.listGroupProducts(uuid.parse(c.req.param("id")), c.get("authHeaders"))));
 coreRoute.post("/groups/:id/products", async (c) => c.json(await coreApiService.createGroupProduct(uuid.parse(c.req.param("id")), groupProductSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 
-coreRoute.get("/shopping-lists", async (c) => { const { page, size } = paging(c); const stockId = positiveInteger.parse(c.req.query("stockId")); return c.json(await coreApiService.listShoppingLists(stockId, c.get("authHeaders"), page, size, c.req.query("status"))); });
+coreRoute.get("/shopping-lists", async (c) => { const { page, size } = paging(c); const stockId = positiveInteger.parse(c.req.query("stockId")); const status = c.req.query("status") === undefined ? undefined : z.enum(["OPEN", "COMPLETED", "CANCELED"]).parse(c.req.query("status")); return c.json(await coreApiService.listShoppingLists(stockId, c.get("authHeaders"), page, size, status)); });
 coreRoute.post("/shopping-lists", async (c) => c.json(await coreApiService.createShoppingList(shoppingListSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 coreRoute.get("/shopping-lists/suggestions", async (c) => c.json(await coreApiService.shoppingSuggestions(positiveInteger.parse(c.req.query("stockId")), c.get("authHeaders"))));
 coreRoute.get("/shopping-lists/:id", async (c) => c.json(await coreApiService.getShoppingList(uuid.parse(c.req.param("id")), c.get("authHeaders"))));
@@ -51,7 +61,7 @@ coreRoute.delete("/shopping-lists/:id/items/:itemId", async (c) => { await coreA
 coreRoute.delete("/shopping-lists/:id/purchased-items", async (c) => { await coreApiService.clearPurchasedItems(uuid.parse(c.req.param("id")), c.get("authHeaders")); return c.body(null, 204); });
 coreRoute.post("/shopping-lists/:id/complete", async (c) => c.json(await coreApiService.completeShoppingList(uuid.parse(c.req.param("id")), completeShoppingSchema.parse(await c.req.json()), c.get("authHeaders"))));
 
-coreRoute.get("/recipes", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listRecipes(c.get("authHeaders"), page, size, c.req.query("name"))); });
+coreRoute.get("/recipes", async (c) => { const { page, size } = paging(c); const name = c.req.query("name") === undefined ? undefined : z.string().trim().min(1).max(120).parse(c.req.query("name")); return c.json(await coreApiService.listRecipes(c.get("authHeaders"), page, size, name)); });
 coreRoute.get("/recipes/favorites", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listFavoriteRecipes(c.get("authHeaders"), page, size)); });
 coreRoute.get("/recipes/suggestions", async (c) => c.json(await coreApiService.recipeSuggestions(c.get("authHeaders"), c.req.query("stockId") ? positiveInteger.parse(c.req.query("stockId")) : undefined, c.req.query("limit") ? positiveInteger.parse(c.req.query("limit")) : undefined)));
 coreRoute.post("/ai/recipes/chat", async (c) => c.json(await coreApiService.chatWithRecipeAi(aiRecipeChatSchema.parse(await c.req.json()), c.get("authHeaders"))));
@@ -75,7 +85,7 @@ coreRoute.patch("/groups/:groupId/members/:userId/role", async (c) => c.json(awa
 
 coreRoute.get("/commercial/groups/:groupId/expenses", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listExpenses(uuid.parse(c.req.param("groupId")), c.get("authHeaders"), page, size)); });
 coreRoute.post("/commercial/groups/:groupId/expenses", async (c) => c.json(await coreApiService.createExpense(uuid.parse(c.req.param("groupId")), expenseSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
-coreRoute.get("/commercial/groups/:groupId/reports/monthly", async (c) => c.json(await coreApiService.monthlyReport(uuid.parse(c.req.param("groupId")), z.string().regex(/^\d{4}-\d{2}$/).parse(c.req.query("month")), c.get("authHeaders"))));
+coreRoute.get("/commercial/groups/:groupId/reports/monthly", async (c) => c.json(await coreApiService.monthlyReport(uuid.parse(c.req.param("groupId")), z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).parse(c.req.query("month")), c.get("authHeaders"))));
 coreRoute.get("/commercial/groups/:groupId/employees", async (c) => c.json(await coreApiService.listEmployees(uuid.parse(c.req.param("groupId")), c.get("authHeaders"))));
 coreRoute.post("/commercial/groups/:groupId/employees/invitations", async (c) => c.json(await coreApiService.inviteEmployee(uuid.parse(c.req.param("groupId")), invitationSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 coreRoute.delete("/groups/:id/members/:userId", async (c) => { await coreApiService.removeGroupMember(uuid.parse(c.req.param("id")), uuid.parse(c.req.param("userId")), c.get("authHeaders")); return c.body(null, 204); });
@@ -100,7 +110,7 @@ coreRoute.post("/chat/conversations/group", async (c) => c.json(await coreApiSer
 coreRoute.post("/chat/conversations/private", async (c) => c.json(await coreApiService.createPrivateConversation(privateConversationSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 coreRoute.get("/chat/conversations/:id/messages", async (c) => { const { page, size } = paging(c); const result = await coreApiService.listMessages(uuid.parse(c.req.param("id")), c.get("authHeaders"), page, size, c.req.query("q")); return c.json(await messageAttachmentService.signPage(result)); });
 coreRoute.post("/chat/conversations/:id/messages", async (c) => { const result = await coreApiService.sendMessage(uuid.parse(c.req.param("id")), messageSchema.parse(await c.req.json()), c.get("authHeaders")); return c.json(await messageAttachmentService.signMessageAttachments(result), 201); });
-coreRoute.post("/chat/conversations/:id/attachments/upload-ticket", async (c) => { const id = uuid.parse(c.req.param("id")); const headers = c.get("authHeaders"); await coreApiService.getConversation(id, headers); const user = await profileService.getProfile({ headers }); const input = attachmentUploadSchema.parse(await c.req.json()); return c.json(await messageAttachmentService.createUpload(user.id, id, input.fileName, input.mimeType)); });
+coreRoute.post("/chat/conversations/:id/attachments/upload-ticket", async (c) => { const id = uuid.parse(c.req.param("id")); const headers = c.get("authHeaders"); const [, user] = await Promise.all([coreApiService.getConversation(id, headers), profileService.getProfile({ headers })]); const input = attachmentUploadSchema.parse(await c.req.json()); return c.json(await messageAttachmentService.createUpload(user.id, id, input.fileName, input.mimeType)); });
 coreRoute.get("/chat/conversations/:id/messages/:messageId/reactions", async (c) => c.json(await coreApiService.listMessageReactions(uuid.parse(c.req.param("id")), positiveInteger.parse(c.req.param("messageId")), c.get("authHeaders"))));
 coreRoute.put("/chat/conversations/:id/messages/:messageId/reactions", async (c) => c.json(await coreApiService.addMessageReaction(uuid.parse(c.req.param("id")), positiveInteger.parse(c.req.param("messageId")), reactionSchema.parse(await c.req.json()), c.get("authHeaders"))));
 coreRoute.delete("/chat/conversations/:id/messages/:messageId/reactions", async (c) => c.json(await coreApiService.removeMessageReaction(uuid.parse(c.req.param("id")), positiveInteger.parse(c.req.param("messageId")), reactionSchema.parse({ emoji: c.req.query("emoji") }).emoji, c.get("authHeaders"))));

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../../config/env.js";
 
-const domesticRoute = new Hono();
+const domesticRoute = new Hono<AppBindings>();
 
 /**
  * The former /web/domestic API returned process-local mock data. It is kept as

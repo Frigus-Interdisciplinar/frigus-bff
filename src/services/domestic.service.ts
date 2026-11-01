@@ -1,4 +1,5 @@
 import { api } from "../utils/index.js";
+import { z } from "zod";
 import type {
   ApiBodylessRequestOptions,
   DashboardSummaryResponse,
@@ -25,6 +26,53 @@ import type {
   DomesticSettingsUpdateRequest,
   StorageLocation,
 } from "../types/index.js";
+
+const dashboardSummarySchema = z.object({
+  greeting: z.object({ userName: z.string(), period: z.string(), message: z.string() }),
+  hero: z.object({
+    title: z.string(),
+    subtitle: z.string(),
+    attentionCount: z.number(),
+    stockInOrderPercentage: z.number(),
+    sparkline: z.array(z.number()),
+  }),
+  itemsToUseFirst: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    location: z.string(),
+    quantity: z.string(),
+    badgeText: z.string(),
+    badgeVariant: z.enum(["success", "warning", "danger", "info", "primary", "accent"]),
+  })),
+  weeklyConsumption: z.object({
+    totalItemsUsed: z.number(),
+    days: z.array(z.object({
+      day: z.enum(["S", "T", "Q", "D"]),
+      percentage: z.number(),
+      colorClass: z.string(),
+    })),
+  }),
+  distribution: z.object({
+    totalItems: z.number(),
+    pantryCount: z.number(),
+    fridgeCount: z.number(),
+    freshCount: z.number(),
+    frozenCount: z.number(),
+  }),
+  upcomingPurchases: z.object({
+    missingCount: z.number(),
+    items: z.array(z.object({ id: z.string(), name: z.string(), qty: z.string(), checked: z.boolean() })),
+  }),
+  recentUpdates: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    category: z.string(),
+    quantity: z.string(),
+    expiration: z.string(),
+    status: z.string(),
+    statusVariant: z.enum(["success", "warning", "danger", "info", "primary", "accent"]),
+  })),
+});
 
 // Dados iniciais padrão para resiliência e apoio ao desenvolvimento frontend
 const initialStockItems: StockItemResponse[] = [
@@ -190,8 +238,9 @@ export class DomesticService {
   async getDashboardSummary(options?: ApiBodylessRequestOptions): Promise<DashboardSummaryResponse> {
     try {
       // Tenta agregar dados da core-api se disponiveis
-      const coreStock = await api.get<any>("/stocks/my-summary", options).catch(() => null);
-      if (coreStock) return coreStock;
+      const coreStock = await api.get<unknown>("/stocks/my-summary", options).catch(() => null);
+      const parsedSummary = coreStock === null ? null : dashboardSummarySchema.safeParse(coreStock);
+      if (parsedSummary?.success) return parsedSummary.data;
     } catch {
       // Fallback para os dados consolidados do BFF
     }
@@ -221,7 +270,7 @@ export class DomesticService {
         location: item.location,
         quantity: item.quantity,
         badgeText: item.expiration === "15 ago" ? "Amanhã" : "Hoje",
-        badgeVariant: item.statusVariant as any,
+        badgeVariant: item.statusVariant,
       })),
       weeklyConsumption: {
         totalItemsUsed: 18,
@@ -384,7 +433,7 @@ export class DomesticService {
       this.stockMemory[index] = {
         ...this.stockMemory[index],
         ...body,
-        location: (body.location ?? this.stockMemory[index].location) as StorageLocation,
+        location: body.location ?? this.stockMemory[index].location,
       };
       return this.stockMemory[index];
     }

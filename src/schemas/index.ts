@@ -3,3 +3,4 @@ export * from "./user.schema.js";
 export * from "./transaction.schema.js";
 export * from "./domestic.schema.js";
 export * from "./money-saving.schema.js";
+export * from "./core-api-response.schema.js";
