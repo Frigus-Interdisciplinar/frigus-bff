@@ -223,8 +223,61 @@ async function runServiceTests() {
     assert.deepEqual(await onboardingRes.json(), onboardingUser);
     assert.equal(forwardedUrl, "/profile/onboarding/account-type");
     assert.equal(forwardedMethod, "patch");
-    assert.equal(forwardedAuthorization, "Bearer onboarding-test-token");
-    assert.deepEqual(forwardedBody, { accountType: "COMMERCIAL" });
+  assert.equal(forwardedAuthorization, "Bearer onboarding-test-token");
+  assert.deepEqual(forwardedBody, { accountType: "COMMERCIAL" });
+  } finally {
+    axiosInstance.defaults.adapter = originalAdapter;
+  }
+
+  const googleUser = {
+    id: "33333333-3333-4333-8333-333333333333",
+    name: "Google Onboarding",
+    email: "google-onboarding@example.invalid",
+    accountType: "DOMESTIC",
+    planSelectionRequired: true,
+  };
+  let googleForwardedUrl: string | undefined;
+  let googleForwardedMethod: string | undefined;
+  let googleForwardedBody: unknown;
+  let googleForwardedUserAgent: unknown;
+  axiosInstance.defaults.adapter = async (config) => {
+    googleForwardedUrl = config.url;
+    googleForwardedMethod = config.method;
+    googleForwardedBody = JSON.parse(String(config.data));
+    googleForwardedUserAgent = config.headers.get("User-Agent");
+    return {
+      data: {
+        accessToken: "google-access-token",
+        refreshToken: "google-refresh-token",
+        user: googleUser,
+      },
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      config,
+      request: {},
+    };
+  };
+  try {
+    const googleRes = await app.request("/web/auth/google", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "http://localhost:5173",
+        "User-Agent": "Frigus Google login test",
+      },
+      body: JSON.stringify({ idToken: "google-test-token", rememberMe: true }),
+    });
+    assert.equal(googleRes.status, 200);
+    assert.deepEqual(await googleRes.json(), { user: googleUser });
+    assert.equal(googleForwardedUrl, "/auth/google");
+    assert.equal(googleForwardedMethod, "post");
+    assert.deepEqual(googleForwardedBody, { idToken: "google-test-token" });
+    assert.equal(googleForwardedUserAgent, "Frigus Google login test");
+    const cookies = googleRes.headers.get("set-cookie") ?? "";
+    assert.match(cookies, /accessToken=google-access-token/);
+    assert.match(cookies, /refreshToken=google-refresh-token/);
+    assert.match(cookies, /rememberMe=true/);
   } finally {
     axiosInstance.defaults.adapter = originalAdapter;
   }
