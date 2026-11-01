@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { AppBindings } from "../../../config/env.js";
 import { z } from "zod";
 import { authMiddleware } from "../../../middlewares/index.js";
 import { coreApiService, assertCommercialMoneySavingAccess } from "../../../services/index.js";
@@ -12,7 +13,7 @@ import {
 } from "../../../schemas/money-saving.schema.js";
 import { BadRequestException } from "../../../exceptions/index.js";
 
-const route = new Hono();
+const route = new Hono<AppBindings>();
 const idempotencyKeySchema = z.string().trim().min(1).max(160);
 
 route.use("*", authMiddleware);
