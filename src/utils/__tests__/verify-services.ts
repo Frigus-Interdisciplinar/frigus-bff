@@ -14,9 +14,31 @@ import {
   checkoutSchema,
 } from "../../schemas/index.js";
 import { app } from "../../app.js";
+import { z } from "zod";
+import { envSchema } from "../../config/env.js";
+import { coreStockSummarySchema } from "../../schemas/core-api-response.schema.js";
 
 async function runServiceTests() {
   console.log("🧪 Starting validation tests for Core API integration...\n");
+
+  assert.equal(envSchema.safeParse({ WEB_ORIGINS: "*" }).success, false);
+  assert.equal(envSchema.safeParse({ WEB_ORIGINS: "https://example.com/path" }).success, false);
+  assert.equal(envSchema.safeParse({ WEB_ORIGINS: "https://example.com" }).success, true);
+  const validatedSummary = coreStockSummarySchema.parse({
+    groupId: "22222222-2222-4222-8222-222222222222",
+    stockCount: 1,
+    productCount: 1,
+    itemCount: 1,
+    estimatedValue: 15,
+    pendingShoppingItems: 0,
+    quantitiesByUnit: { LITER: 2 },
+    itemsByStoragePlace: { FRIDGE: 1 },
+    consumedThisWeek: {},
+    weekStart: "2026-10-19",
+    nearExpiration: [],
+    internalDebug: "discarded",
+  });
+  assert.equal("internalDebug" in validatedSummary, false);
 
   // 1. Test Zod Schemas
   console.log("▶ Testing Zod Schemas...");
@@ -92,7 +114,7 @@ async function runServiceTests() {
   assert.throws(() =>
     checkoutSchema.parse({
       planCode: "",
-      paymentMethod: "INVALID" as any,
+      paymentMethod: "INVALID",
     }),
   );
   console.log("✔ Zod schemas passed!\n");
@@ -128,10 +150,22 @@ async function runServiceTests() {
   console.log("▶ Testing Hono Routes & Validation...");
 
   // Health check
-  const healthRes = await app.request("/health");
+  const healthRes = await app.request("/health", { headers: { Origin: "http://localhost:5173" } });
   assert.equal(healthRes.status, 200);
-  const healthJson = (await healthRes.json()) as any;
+  const healthJson = z.object({ status: z.string() }).parse(await healthRes.json());
   assert.equal(healthJson.status, "UP");
+  assert.equal(healthRes.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(healthRes.headers.get("X-Frame-Options"), "DENY");
+  assert.ok(healthRes.headers.get("Content-Security-Policy")?.includes("frame-ancestors 'none'"));
+  assert.ok(healthRes.headers.get("X-Correlation-ID"));
+  assert.equal(healthRes.headers.get("Access-Control-Allow-Origin"), "http://localhost:5173");
+
+  const oversizedBody = await app.request("/missing", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "x".repeat(1_048_577),
+  });
+  assert.equal(oversizedBody.status, 413);
 
   // Root
   const rootRes = await app.request("/");
@@ -140,22 +174,29 @@ async function runServiceTests() {
   // Web Auth invalid input should return 400 with field errors
   const invalidLoginRes = await app.request("/web/auth/login", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Origin: "http://localhost:5173" },
     body: JSON.stringify({ email: "invalid", rawPassword: "" }),
   });
   assert.equal(invalidLoginRes.status, 400);
-  const invalidLoginJson = (await invalidLoginRes.json()) as any;
+  const invalidLoginJson = z.object({ code: z.string(), fields: z.array(z.unknown()).optional() }).parse(await invalidLoginRes.json());
   assert.equal(invalidLoginJson.code, "BAD_REQUEST");
   assert.ok(invalidLoginJson.fields && invalidLoginJson.fields.length > 0);
+
+  const untrustedOriginRes = await app.request("/web/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: "https://attacker.example" },
+    body: JSON.stringify({ email: "bad", rawPassword: "bad" }),
+  });
+  assert.equal(untrustedOriginRes.status, 403);
 
   // Test authMiddleware: unauthenticated request to protected route should return 401
   const unauthCheckoutRes = await app.request("/web/transactions/checkout", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Origin: "http://localhost:5173" },
     body: JSON.stringify({ planCode: "PLUS", paymentMethod: "PIX" }),
   });
   assert.equal(unauthCheckoutRes.status, 401);
-  const unauthJson = (await unauthCheckoutRes.json()) as any;
+  const unauthJson = z.object({ code: z.string() }).parse(await unauthCheckoutRes.json());
   assert.equal(unauthJson.code, "UNAUTHORIZED");
 
   // Test authMiddleware with token present but invalid body -> should pass middleware and fail on validation with 400
@@ -165,6 +206,7 @@ async function runServiceTests() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Origin: "http://localhost:5173",
         Authorization: "Bearer mock-token",
       },
       body: JSON.stringify({ planCode: "", paymentMethod: "INVALID" }),
@@ -183,6 +225,34 @@ async function runServiceTests() {
   // Mobile Profile without token -> 401
   const mobileUnauthProfileRes = await app.request("/mobile/user/profile");
   assert.equal(mobileUnauthProfileRes.status, 401);
+  const mobileUnauthProxyRes = await app.request("/mobile/core/profile/sessions");
+  assert.equal(mobileUnauthProxyRes.status, 401);
+  const invalidProxyJsonRes = await app.request("/mobile/core/profile/app-settings", {
+    method: "PUT",
+    headers: { Authorization: "Bearer mock-token", "Content-Type": "application/json" },
+    body: "{ invalid",
+  });
+  assert.equal(invalidProxyJsonRes.status, 400);
+  const unsupportedProxyBodyRes = await app.request("/mobile/core/profile/app-settings", {
+    method: "PUT",
+    headers: { Authorization: "Bearer mock-token", "Content-Type": "text/plain" },
+    body: "unexpected",
+  });
+  assert.equal(unsupportedProxyBodyRes.status, 415);
+  const invalidGroupFilterRes = await app.request("/web/core/inventory/active-context?groupId=invalid", {
+    headers: { Authorization: "Bearer mock-token" },
+  });
+  assert.equal(invalidGroupFilterRes.status, 400);
+  const invalidProductPageRes = await app.request("/web/plans/catalog/products?page=-1");
+  assert.equal(invalidProductPageRes.status, 400);
+
+  const limitedResponses = await Promise.all(Array.from({ length: 11 }, () => app.request("/web/auth/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: "http://localhost:5173" },
+    body: JSON.stringify({ email: "bad" }),
+  })));
+  assert.equal(limitedResponses.at(-1)?.status, 429);
+  assert.ok(limitedResponses.at(-1)?.headers.get("Retry-After"));
 
   console.log("✔ Hono routes, authMiddleware and error handler verified!\n");
   console.log("🎉 ALL CORE API INTEGRATION TESTS PASSED SUCCESSFULLY!");

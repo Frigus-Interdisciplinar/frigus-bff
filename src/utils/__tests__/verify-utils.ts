@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { AxiosError, type AxiosResponse } from "axios";
+import { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
 import { z } from "zod";
 import { Hono } from "hono";
 import {
@@ -22,6 +22,7 @@ import {
   UnprocessableEntityException,
 } from "../../exceptions/index.js";
 import { errorHandler } from "../../middlewares/index.js";
+import { requestContextMiddleware } from "../../middlewares/request-context.middleware.js";
 
 async function runTests() {
   console.log("🧪 Starting validation tests for utils & exceptions...\n");
@@ -94,7 +95,7 @@ async function runTests() {
 
   // 3. Test handleAxiosError status code mapping
   console.log("▶ Testing handleAxiosError status code mappings...");
-  const createMockAxiosError = (status: number, data?: any, code?: string) => {
+  const createMockAxiosError = (status: number, data?: unknown, code?: string) => {
     const error = new AxiosError("Request failed");
     if (code) error.code = code;
     if (status > 0) {
@@ -102,7 +103,7 @@ async function runTests() {
         status,
         statusText: "Error",
         headers: {},
-        config: {} as any,
+        config: { headers: new AxiosHeaders() } as InternalAxiosRequestConfig,
         data: data ?? {
           status,
           code: `CODE_${status}`,
@@ -163,6 +164,15 @@ async function runTests() {
     );
   }
 
+  assert.throws(
+    () => handleAxiosError(createMockAxiosError(400, {
+      status: 400,
+      code: "INVALID_REQUEST",
+      message: "Failure at com.example.Service.run(Service.java:27)",
+    })),
+    (error: unknown) => error instanceof BadRequestException && !error.message.includes("Service.java"),
+  );
+
   // 4. Test Network & Timeout error mapping
   console.log("▶ Testing network & timeout error mappings...");
   assert.throws(
@@ -187,6 +197,81 @@ async function runTests() {
   assert.equal(typeof api.put, "function");
   assert.equal(typeof api.patch, "function");
   assert.equal(typeof api.delete, "function");
+
+  const validResponseClient = createAxiosInstance({
+    adapter: async (config) => ({
+      data: { value: "ok" },
+      status: 200,
+      statusText: "OK",
+      headers: new AxiosHeaders(),
+      config,
+    }),
+  });
+  const validatedResponse = await api<{ value: string }, undefined>(
+    "/contract",
+    "GET",
+    undefined,
+    { client: validResponseClient, responseSchema: z.object({ value: z.string() }) },
+  );
+  assert.equal(validatedResponse.value, "ok");
+
+  const invalidResponseClient = createAxiosInstance({
+    adapter: async (config) => ({
+      data: { value: 7 },
+      status: 200,
+      statusText: "OK",
+      headers: new AxiosHeaders(),
+      config,
+    }),
+  });
+  await assert.rejects(
+    () => api<{ value: string }, undefined>(
+      "/contract",
+      "GET",
+      undefined,
+      { client: invalidResponseClient, responseSchema: z.object({ value: z.string() }) },
+    ),
+    (error: unknown) => error instanceof BadGatewayException && error.code === "INVALID_UPSTREAM_RESPONSE",
+  );
+  const nonJsonClient = createAxiosInstance({
+    adapter: async (config) => ({
+      data: undefined,
+      status: 200,
+      statusText: "OK",
+      headers: new AxiosHeaders(),
+      config,
+    }),
+  });
+  await assert.rejects(
+    () => api<unknown, undefined>("/contract", "GET", undefined, { client: nonJsonClient }),
+    (error: unknown) => error instanceof BadGatewayException && error.code === "INVALID_UPSTREAM_RESPONSE",
+  );
+
+  let upstreamCorrelationId: string | undefined;
+  const correlationClient = createAxiosInstance({
+    adapter: async (config) => {
+      upstreamCorrelationId = AxiosHeaders.from(config.headers).get("X-Correlation-ID")?.toString();
+      return {
+        data: { ok: true },
+        status: 200,
+        statusText: "OK",
+        headers: new AxiosHeaders(),
+        config,
+      };
+    },
+  });
+  const correlationApp = new Hono();
+  correlationApp.use("*", requestContextMiddleware);
+  correlationApp.get("/test", async (c) => {
+    await api<{ ok: boolean }, undefined>("/test", "GET", undefined, { client: correlationClient });
+    return c.json({ id: c.get("correlationId") });
+  });
+  const correlationResponse = await correlationApp.request("/test", {
+    headers: { "X-Request-ID": "request-123" },
+  });
+  const correlationBody = z.object({ id: z.string() }).parse(await correlationResponse.json());
+  assert.equal(correlationBody.id, "request-123");
+  assert.equal(upstreamCorrelationId, "request-123");
   console.log("✔ api helpers passed!\n");
 
   // 6. Test Hono errorHandler middleware integration
@@ -213,21 +298,21 @@ async function runTests() {
   // AppException test
   const res1 = await testApp.request("/test-app-exception");
   assert.equal(res1.status, 404);
-  const json1 = (await res1.json()) as any;
+  const json1 = z.object({ code: z.string(), displayMessage: z.string() }).parse(await res1.json());
   assert.equal(json1.code, "NOT_FOUND");
   assert.equal(json1.displayMessage, "Ops! Não encontramos");
 
   // ZodError test
   const res2 = await testApp.request("/test-zod", { method: "POST" });
   assert.equal(res2.status, 400);
-  const json2 = (await res2.json()) as any;
+  const json2 = z.object({ code: z.string(), fields: z.array(z.object({ fieldName: z.string() })) }).parse(await res2.json());
   assert.equal(json2.code, "BAD_REQUEST");
   assert.equal(json2.fields?.[0]?.fieldName, "email");
 
   // Generic error test
   const res3 = await testApp.request("/test-generic-error");
   assert.equal(res3.status, 500);
-  const json3 = (await res3.json()) as any;
+  const json3 = z.object({ code: z.string() }).parse(await res3.json());
   assert.equal(json3.code, "INTERNAL_SERVER_ERROR");
   console.log("✔ Hono errorHandler middleware passed!\n");
 
