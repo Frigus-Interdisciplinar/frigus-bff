@@ -241,6 +241,7 @@ const stockProductSchema = z.object({
   quantity: z.number().int().nonnegative(),
   initialQuantity: z.number().int().nonnegative().optional(),
   minimalQuantity: z.number().int().nonnegative().nullable().optional(),
+  purchaseUnitPrice: z.number().finite().nullable().optional(),
   expireDate: z.string().date(),
   batch: z.string().nullable().optional(),
   productStatus: z.string().nullable().optional(),

@@ -46,7 +46,7 @@ test("manual lot uses the explicitly selected authorized group and the inferred 
     assert.equal(config.url, "/stock-products");
     assert.equal(config.method, "post");
     assert.deepEqual(JSON.parse(config.data as string), { ...body, stockId: 42 });
-    return reply(config, { id: 91, ...body, stockId: 42 }, 201);
+    return reply(config, { id: 91, ...body, stockId: 42, category: "FRUIT" }, 201);
   };
   const app = new Hono().route("/mobile/inventory", inventoryRoute);
   const response = await app.request(`/mobile/inventory/stocks/42/products?groupId=${groupId}`, {
@@ -80,11 +80,11 @@ test("confirmed purchase unit price reaches Core without a catalog price fallbac
   const priced = { ...body, purchaseUnitPrice: 7.9 };
   let writes = 0;
   axiosInstance.defaults.adapter = async (config) => {
-    if (config.url === "/stocks/active-context") return reply(config, { groupId, stocks: [{ id: 42, groupId }] });
+    if (config.url === "/stocks/active-context") return reply(config, { groupId, stocks: [{ id: 42, groupId, name: "Grupo selecionado" }] });
     writes += 1;
     assert.equal(config.url, "/stock-products");
     assert.deepEqual(JSON.parse(config.data as string), { ...priced, stockId: 42 });
-    return reply(config, { id: 91, ...priced, stockId: 42 }, 201);
+    return reply(config, { id: 91, ...priced, stockId: 42, category: "FRUIT" }, 201);
   };
   const app = new Hono().route("/mobile/inventory", inventoryRoute);
   const response = await app.request(`/mobile/inventory/stocks/42/products?groupId=${groupId}`, {

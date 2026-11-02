@@ -290,6 +290,7 @@ async function runServiceTests() {
     name: "Google Onboarding",
     email: "google-onboarding@example.invalid",
     accountType: "DOMESTIC",
+    birthDate: null,
     planSelectionRequired: true,
   };
   let googleForwardedUrl: string | undefined;
