@@ -12,6 +12,10 @@ import {
 
 const profileRoute = new Hono<AppBindings>();
 const profilePictureUploadSchema = z.object({ contentType: z.enum(["image/png", "image/jpeg"]) });
+const withResolvedProfilePicture = async <T extends { profilePictureUrl?: string | null }>(user: T) => ({
+  ...user,
+  profilePictureUrl: await profilePictureService.resolveProfilePictureUrl(user.profilePictureUrl),
+});
 
 profileRoute.use("*", authMiddleware);
 
@@ -20,7 +24,7 @@ profileRoute.get("/", async (c) => {
   const result = await profileService.getProfile({
     headers: authHeaders,
   });
-  return c.json(result);
+  return c.json(await withResolvedProfilePicture(result));
 });
 
 profileRoute.patch("/onboarding/account-type", async (c) => {
@@ -30,7 +34,7 @@ profileRoute.patch("/onboarding/account-type", async (c) => {
   const result = await profileService.updateOnboardingAccountType(validData, {
     headers: authHeaders,
   });
-  return c.json(result);
+  return c.json(await withResolvedProfilePicture(result));
 });
 
 profileRoute.post("/picture-upload", async (c) => {
@@ -47,7 +51,7 @@ profileRoute.put("/", async (c) => {
   const result = await profileService.updateProfile(validData, {
     headers: authHeaders,
   });
-  return c.json(result);
+  return c.json(await withResolvedProfilePicture(result));
 });
 
 profileRoute.patch("/", async (c) => {
@@ -57,7 +61,7 @@ profileRoute.patch("/", async (c) => {
   const result = await profileService.patchProfile(validData, {
     headers: authHeaders,
   });
-  return c.json(result);
+  return c.json(await withResolvedProfilePicture(result));
 });
 
 profileRoute.patch("/password", async (c) => {

@@ -7,6 +7,39 @@ const imageTypes = {
 } as const;
 
 export class ProfilePictureService {
+  async resolveProfilePictureUrl(profilePictureUrl?: string | null) {
+    if (!profilePictureUrl) return profilePictureUrl;
+
+    const url = process.env.SUPABASE_URL;
+    const secretKey = process.env.SUPABASE_SECRET_KEY;
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "profile-picture";
+    if (!url || !secretKey) return profilePictureUrl;
+
+    const storedUrl = new URL(profilePictureUrl);
+    const publicPrefix = `/storage/v1/object/public/${bucket}/`;
+    const signedPrefix = `/storage/v1/object/sign/${bucket}/`;
+    const prefix = storedUrl.pathname.startsWith(publicPrefix)
+      ? publicPrefix
+      : storedUrl.pathname.startsWith(signedPrefix)
+        ? signedPrefix
+        : undefined;
+    if (!prefix || new URL(url).host !== storedUrl.host) return profilePictureUrl;
+
+    const path = storedUrl.pathname
+      .slice(prefix.length)
+      .split("/")
+      .map((segment) => decodeURIComponent(segment))
+      .join("/");
+    const supabase = createClient(url, secretKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 60 * 60);
+    if (error) throw new Error(`Não foi possível carregar a foto de perfil: ${error.message}`);
+    return data.signedUrl;
+  }
+
   async createUpload(user: UserResponse, contentType: keyof typeof imageTypes) {
     const url = process.env.SUPABASE_URL;
     const secretKey = process.env.SUPABASE_SECRET_KEY;
