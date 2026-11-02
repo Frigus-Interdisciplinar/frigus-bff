@@ -35,6 +35,25 @@ test("shopping update preserves the published mobile PATCH while forwarding Core
   assert.equal(calls, 1);
 });
 
+test("shopping list completion forwards to Core's close endpoint", async () => {
+  let calls = 0;
+  axiosInstance.defaults.adapter = async (config) => {
+    calls += 1;
+    assert.equal(config.method, "patch");
+    assert.equal(config.url, `/shopping-lists/${listId}/close`);
+    assert.equal(config.data, undefined);
+    return reply(config, { id: listId, status: "COMPLETED" });
+  };
+  const app = new Hono().route("/mobile/shopping-list", shoppingListRoute);
+  const response = await app.request(`/mobile/shopping-list/${listId}/complete`, {
+    method: "POST", headers: { Authorization: "Bearer fixture", "Content-Type": "application/json" },
+    body: JSON.stringify({ supplier: "Codex QA" }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).status, "COMPLETED");
+  assert.equal(calls, 1);
+});
+
 test("manual lot uses the explicitly selected authorized group and the inferred stock", async () => {
   const calls: string[] = [];
   axiosInstance.defaults.adapter = async (config) => {

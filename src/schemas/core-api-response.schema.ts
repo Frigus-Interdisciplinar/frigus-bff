@@ -216,10 +216,16 @@ export const planLimitsSchema = z.object({
   allowOwnProducts: z.boolean(),
   allowSavedRecipes: z.boolean(),
   allowMoneySaving: z.boolean(),
-  isEnterprise: z.boolean(),
+  // Core API currently serializes this property as `enterprise`. Accept the
+  // older BFF spelling as well while normalizing the value for consumers.
+  enterprise: z.boolean().optional(),
+  isEnterprise: z.boolean().optional(),
   costPerPublishedAd: z.number().finite().nullable().optional(),
   hasMonthlyReport: z.boolean(),
-});
+}).transform(({ enterprise, isEnterprise, ...limits }) => ({
+  ...limits,
+  isEnterprise: isEnterprise ?? enterprise ?? false,
+}));
 
 export const coreUnreadCountSchema = z.object({ count: z.number().int().nonnegative() });
 

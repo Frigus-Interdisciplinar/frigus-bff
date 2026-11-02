@@ -31,7 +31,7 @@ for (const scenario of [
             allowOwnProducts: true,
             allowSavedRecipes: true,
             allowMoneySaving: scenario.allowed,
-            isEnterprise: false,
+            enterprise: false,
             hasMonthlyReport: true,
           };
       return { config, status: 200, statusText: "OK", headers: {}, data };

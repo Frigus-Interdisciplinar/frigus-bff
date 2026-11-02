@@ -336,7 +336,7 @@ export class CoreApiService {
   updateShoppingItem(id: string, itemId: number, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.put<unknown>(`/shopping-lists/${id}/items/${itemId}`, body, options(headers)); }
   deleteShoppingItem(id: string, itemId: number, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}/items/${itemId}`, noContentOptions(headers)); }
   clearPurchasedItems(id: string, headers: ApiBodylessRequestOptions["headers"]) { return api.delete<void>(`/shopping-lists/${id}/purchased-items`, noContentOptions(headers)); }
-  completeShoppingList(id: string, body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.post<unknown>(`/shopping-lists/${id}/complete`, body, options(headers)); }
+  completeShoppingList(id: string, _body: unknown, headers: ApiBodylessRequestOptions["headers"]) { return api.patch<unknown>(`/shopping-lists/${id}/close`, undefined, options(headers)); }
   listRecipes(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number, name?: string) { return api.get<CorePage<CoreRecipe>>("/recipes", { ...options(headers, { page, size, name }), responseSchema: coreRecipePageSchema }); }
   listFavoriteRecipes(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number) { return api.get<CorePage<CoreRecipe>>("/recipes/favorites", { ...options(headers, { page, size }), responseSchema: coreRecipePageSchema }); }
   getRecipe(id: number, headers: ApiBodylessRequestOptions["headers"]) { return api.get<CoreRecipe>(`/recipes/${id}`, { ...options(headers), responseSchema: coreRecipeSchema }); }
