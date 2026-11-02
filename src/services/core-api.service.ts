@@ -224,8 +224,8 @@ export class CoreApiService {
     });
   }
 
-  listDiscards(headers: ApiBodylessRequestOptions["headers"], page?: number, size?: number) {
-    return api.get<CorePage<unknown>>("/discard", options(headers, { page, size }));
+  listDiscards(headers: ApiBodylessRequestOptions["headers"], groupId: string, page?: number, size?: number) {
+    return api.get<CorePage<unknown>>("/discard", options(headers, { groupId, page, size }));
   }
 
   createDiscard(body: { stockProductId: number; quantity: number; reason?: string }, headers: ApiBodylessRequestOptions["headers"]) {

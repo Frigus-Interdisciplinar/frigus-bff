@@ -18,7 +18,7 @@ import { app } from "../../app.js";
 import { axiosInstance } from "../axios-instance.js";
 import { z } from "zod";
 import { envSchema } from "../../config/env.js";
-import { coreGroupSchema, coreStockSummarySchema } from "../../schemas/core-api-response.schema.js";
+import { coreConversationSchema, coreGroupSchema, coreStockSummarySchema } from "../../schemas/core-api-response.schema.js";
 
 async function runServiceTests() {
   console.log("🧪 Starting validation tests for Core API integration...\n");
@@ -61,6 +61,22 @@ async function runServiceTests() {
     internalDebug: "discarded",
   });
   assert.equal("internalDebug" in validatedSummary, false);
+
+  assert.doesNotThrow(() => coreConversationSchema.parse({
+    id: "11111111-1111-4111-8111-111111111111",
+    conversationType: "GROUP",
+    groupId: "22222222-2222-4222-8222-222222222222",
+    latestMessage: {
+      id: 1,
+      conversationId: "11111111-1111-4111-8111-111111111111",
+      senderId: "33333333-3333-4333-8333-333333333333",
+      senderName: "Membro",
+      messageType: "TEXT",
+      content: "Olá",
+      createdAt: "2026-11-01T00:00:00Z",
+      attachments: null,
+    },
+  }));
 
   // 1. Test Zod Schemas
   console.log("▶ Testing Zod Schemas...");
@@ -392,6 +408,27 @@ async function runServiceTests() {
     headers: { Authorization: "Bearer mock-token" },
   });
   assert.equal(invalidGroupFilterRes.status, 400);
+  const originalGetActiveContext = coreApiService.getActiveContext;
+  const originalListDiscards = coreApiService.listDiscards;
+  let resolvedDiscardGroupId: string | undefined;
+  coreApiService.getActiveContext = async () => ({
+    groupId: "22222222-2222-4222-8222-222222222222",
+    stocks: [],
+  });
+  coreApiService.listDiscards = async (_headers, groupId) => {
+    resolvedDiscardGroupId = groupId;
+    return { content: [], pageable: {}, totalElements: 0, totalPages: 0, size: 20, number: 0, sort: {}, first: true, last: true, numberOfElements: 0, empty: true } as Awaited<ReturnType<typeof originalListDiscards>>;
+  };
+  try {
+    const discardsRes = await app.request("/web/core/discards?size=100", {
+      headers: { Authorization: "Bearer mock-token" },
+    });
+    assert.equal(discardsRes.status, 200);
+    assert.equal(resolvedDiscardGroupId, "22222222-2222-4222-8222-222222222222");
+  } finally {
+    coreApiService.getActiveContext = originalGetActiveContext;
+    coreApiService.listDiscards = originalListDiscards;
+  }
   const invalidProductPageRes = await app.request("/web/plans/catalog/products?page=-1");
   assert.equal(invalidProductPageRes.status, 400);
 

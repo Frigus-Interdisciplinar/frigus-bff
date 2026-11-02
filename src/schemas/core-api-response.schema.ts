@@ -138,7 +138,7 @@ export const coreMessageSchema = z.object({
   messageType: z.string().nullable().optional(),
   content: z.string().nullable(),
   createdAt: z.string(),
-  attachments: z.array(messageAttachmentSchema).optional(),
+  attachments: z.array(messageAttachmentSchema).nullable().optional(),
 });
 
 export const coreConversationSchema = z.object({

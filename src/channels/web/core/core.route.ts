@@ -101,7 +101,7 @@ coreRoute.delete("/inventory/stock-products/:id", async (c) => { await coreApiSe
 coreRoute.get("/inventory/stock-products/:id/movements", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listMovements(String(positiveInteger.parse(c.req.param("id"))), c.get("authHeaders"), page, size)); });
 coreRoute.post("/inventory/stock-products/:id/movements", async (c) => c.json(await coreApiService.createMovement(String(positiveInteger.parse(c.req.param("id"))), movementSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 
-coreRoute.get("/discards", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listDiscards(c.get("authHeaders"), page, size)); });
+coreRoute.get("/discards", async (c) => { const { page, size } = paging(c); const headers = c.get("authHeaders"); const context = await coreApiService.getActiveContext(headers); return c.json(await coreApiService.listDiscards(headers, context.groupId, page, size)); });
 coreRoute.post("/discards", async (c) => c.json(await coreApiService.createDiscard(discardSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 
 coreRoute.get("/chat/conversations", async (c) => c.json(await coreApiService.listConversations(c.get("authHeaders"))));
