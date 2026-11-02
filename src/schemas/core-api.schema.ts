@@ -21,6 +21,8 @@ export const stockProductUpdateSchema = z.object({
   initialQuantity: nonNegativeInteger.optional(),
   expireDate: z.string().date().optional(),
   batch: z.string().max(120).optional(),
+  unitOfMeasure: z.enum(["KILOGRAM", "GRAM", "LITER", "MILLILITER", "UNIT", "DOZEN", "PACKAGE"]).optional(),
+  imageUrl: optionalInput(z.string().max(2048)),
 }).refine((value) => Object.keys(value).length > 0, "Informe ao menos um campo para atualizar.");
 export const movementSchema = z.object({ movementType: z.enum(["IN", "OUT", "ADJUSTMENT"]), quantity: nonNegativeInteger, observation: optionalInput(z.string().max(2000)) }).refine(v => v.movementType === "ADJUSTMENT" || v.quantity > 0, { path: ["quantity"], message: "Entradas e saídas devem ser maiores que zero." });
 export const discardSchema = z.object({ stockProductId: positiveInteger, quantity: positiveInteger, reason: optionalInput(z.string().max(2000)) });
