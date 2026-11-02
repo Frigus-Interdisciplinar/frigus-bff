@@ -86,6 +86,7 @@ async function runServiceTests() {
       birthDate: "15/05/1998",
       email: "gabriel@frigus.com",
       rawPassword: "Password123!",
+      accountType: "DOMESTIC",
     }),
   );
   assert.throws(() =>
@@ -335,6 +336,9 @@ async function runServiceTests() {
     assert.match(cookies, /accessToken=google-access-token/);
     assert.match(cookies, /refreshToken=google-refresh-token/);
     assert.match(cookies, /rememberMe=true/);
+    const cookiePaths = cookies.match(/Path=[^;]+/g) ?? [];
+    assert.equal(cookiePaths.length, 3);
+    assert.ok(cookiePaths.every((cookiePath) => cookiePath === "Path=/"));
   } finally {
     axiosInstance.defaults.adapter = originalAdapter;
   }

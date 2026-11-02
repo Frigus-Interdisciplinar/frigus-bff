@@ -14,6 +14,9 @@ import {
 } from "../../../schemas/index.js";
 
 const authRoute = new Hono<AppBindings>();
+// The web app may reach the BFF through a reverse-proxy prefix such as /api.
+// Root-scoped cookies remain available after that prefix is rewritten upstream.
+const WEB_SESSION_COOKIE_PATH = "/";
 
 function sessionCookiePolicy(request: Request) {
   const origin = request.headers.get("Origin");
@@ -76,19 +79,19 @@ authRoute.post("/login", async (c) => {
     httpOnly: true,
     ...cookiePolicy,
     maxAge: 15 * 60, // 15 minutos
-    path: "/web",
+    path: WEB_SESSION_COOKIE_PATH,
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
     ...cookiePolicy,
     ...persistentCookie,
-    path: "/web/auth"
+    path: WEB_SESSION_COOKIE_PATH,
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
     ...cookiePolicy,
     ...persistentCookie,
-    path: "/web/auth",
+    path: WEB_SESSION_COOKIE_PATH,
   });
 
   return c.json({ user: result.user });
@@ -108,19 +111,19 @@ authRoute.post("/google", async (c) => {
     httpOnly: true,
     ...cookiePolicy,
     maxAge: 15 * 60,
-    path: "/web",
+    path: WEB_SESSION_COOKIE_PATH,
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
     ...cookiePolicy,
     ...persistentCookie,
-    path: "/web/auth",
+    path: WEB_SESSION_COOKIE_PATH,
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
     ...cookiePolicy,
     ...persistentCookie,
-    path: "/web/auth",
+    path: WEB_SESSION_COOKIE_PATH,
   });
 
   return c.json({ user: result.user });
@@ -149,19 +152,19 @@ authRoute.post("/refresh", async (c) => {
     httpOnly: true,
     ...cookiePolicy,
     maxAge: 15 * 60,
-    path: "/web",
+    path: WEB_SESSION_COOKIE_PATH,
   });
   setCookie(c, "refreshToken", result.refreshToken, {
     httpOnly: true,
     ...cookiePolicy,
     ...persistentCookie,
-    path: "/web/auth",
+    path: WEB_SESSION_COOKIE_PATH,
   });
   setCookie(c, "rememberMe", String(rememberMe), {
     httpOnly: true,
     ...cookiePolicy,
     ...persistentCookie,
-    path: "/web/auth",
+    path: WEB_SESSION_COOKIE_PATH,
   });
   return c.json({ user: result.user });
 });
@@ -172,9 +175,9 @@ authRoute.post("/logout", async (c) => {
   const refreshToken = validData.refreshToken ?? getCookie(c, "refreshToken");
   await authService.logout(refreshToken);
   const cookiePolicy = sessionCookiePolicy(c.req.raw);
-  deleteCookie(c, "accessToken", { path: "/web", ...cookiePolicy });
-  deleteCookie(c, "refreshToken", { path: "/web/auth", ...cookiePolicy });
-  deleteCookie(c, "rememberMe", { path: "/web/auth", ...cookiePolicy });
+  deleteCookie(c, "accessToken", { path: WEB_SESSION_COOKIE_PATH, ...cookiePolicy });
+  deleteCookie(c, "refreshToken", { path: WEB_SESSION_COOKIE_PATH, ...cookiePolicy });
+  deleteCookie(c, "rememberMe", { path: WEB_SESSION_COOKIE_PATH, ...cookiePolicy });
   return c.body(null, 204);
 });
 
