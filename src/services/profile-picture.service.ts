@@ -19,7 +19,13 @@ export class ProfilePictureService {
     const path = `${user.accountType.toLowerCase()}/${user.id}/${crypto.randomUUID()}.${imageTypes[contentType]}`;
     const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path);
     if (error) throw new Error(`Não foi possível preparar o upload da foto: ${error.message}`);
-    return { path: data.path, token: data.token };
+    const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(data.path);
+    return {
+      path: data.path,
+      token: data.token,
+      uploadUrl: data.signedUrl,
+      profilePictureUrl: publicUrlData.publicUrl,
+    };
   }
 }
 
