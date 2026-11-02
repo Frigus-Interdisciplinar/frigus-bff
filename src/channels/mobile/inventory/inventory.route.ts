@@ -131,7 +131,8 @@ inventoryRoute.post("/stocks/:stockId/products", async (c) => {
   const stockId = positiveInteger.parse(c.req.param("stockId"));
   const input = manualStockProductSchema.parse(await c.req.json());
   const headers = c.get("authHeaders");
-  const context = await coreApiService.getActiveContext(headers);
+  const groupId = uuid.parse(c.req.query("groupId"));
+  const context = await coreApiService.getActiveContext(headers, groupId);
   const stock = context.stocks.find((item) => item.id === stockId);
   if (!stock) {
     throw new NotFoundException("Estoque não encontrado no grupo ativo", "Selecione um estoque do grupo ativo");

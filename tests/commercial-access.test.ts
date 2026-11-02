@@ -22,7 +22,18 @@ for (const scenario of [
       assert.equal(config.headers.Authorization, "Bearer fixture");
       const data = config.url === "/subscriptions/me"
         ? { status: scenario.status, currentPeriodEnd: scenario.end }
-        : { allowMoneySaving: scenario.allowed };
+        : {
+            planCode: "COMMERCIAL",
+            maxGroupsCreated: 3,
+            maxGroupMembers: 10,
+            maxStocks: 10,
+            maxProductsPerStock: 500,
+            allowOwnProducts: true,
+            allowSavedRecipes: true,
+            allowMoneySaving: scenario.allowed,
+            isEnterprise: false,
+            hasMonthlyReport: true,
+          };
       return { config, status: 200, statusText: "OK", headers: {}, data };
     };
     const request = assertCommercialMoneySavingAccess({ Authorization: "Bearer fixture" });
