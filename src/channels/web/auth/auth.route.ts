@@ -173,21 +173,11 @@ authRoute.post("/logout", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const validData = refreshSchema.parse(body);
   const refreshToken = validData.refreshToken ?? getCookie(c, "refreshToken");
+  await authService.logout(refreshToken);
   const cookiePolicy = sessionCookiePolicy(c.req.raw);
-
-  try {
-    await authService.logout(refreshToken);
-  } catch (error) {
-    console.error("[Auth] Logout token revocation failed", {
-      correlationId: c.get("correlationId"),
-      name: error instanceof Error ? error.name : "UnknownError",
-    });
-  } finally {
-    deleteCookie(c, "accessToken", { path: WEB_SESSION_COOKIE_PATH, ...cookiePolicy });
-    deleteCookie(c, "refreshToken", { path: WEB_SESSION_COOKIE_PATH, ...cookiePolicy });
-    deleteCookie(c, "rememberMe", { path: WEB_SESSION_COOKIE_PATH, ...cookiePolicy });
-  }
-
+  deleteCookie(c, "accessToken", { path: WEB_SESSION_COOKIE_PATH, ...cookiePolicy });
+  deleteCookie(c, "refreshToken", { path: WEB_SESSION_COOKIE_PATH, ...cookiePolicy });
+  deleteCookie(c, "rememberMe", { path: WEB_SESSION_COOKIE_PATH, ...cookiePolicy });
   return c.body(null, 204);
 });
 
