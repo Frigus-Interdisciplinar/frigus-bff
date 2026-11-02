@@ -35,13 +35,13 @@ test("shopping update preserves the published mobile PATCH while forwarding Core
   assert.equal(calls, 1);
 });
 
-test("shopping list completion forwards to Core's close endpoint", async () => {
+test("shopping list completion forwards supplier to Core's completion endpoint", async () => {
   let calls = 0;
   axiosInstance.defaults.adapter = async (config) => {
     calls += 1;
-    assert.equal(config.method, "patch");
-    assert.equal(config.url, `/shopping-lists/${listId}/close`);
-    assert.equal(config.data, undefined);
+    assert.equal(config.method, "post");
+    assert.equal(config.url, `/shopping-lists/${listId}/complete`);
+    assert.deepEqual(JSON.parse(config.data as string), { supplier: "Codex QA" });
     return reply(config, { id: listId, status: "COMPLETED" });
   };
   const app = new Hono().route("/mobile/shopping-list", shoppingListRoute);
