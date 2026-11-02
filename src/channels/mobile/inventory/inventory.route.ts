@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { AppBindings } from "../../../config/env.js";
 import { z } from "zod";
 import { authMiddleware } from "../../../middlewares/index.js";
-import { coreApiService } from "../../../services/index.js";
+import { coreApiService, productImageService } from "../../../services/index.js";
 import type { CorePage, CoreStockProduct } from "../../../types/core-api.type.js";
 import { NotFoundException, UnprocessableEntityException } from "../../../exceptions/index.js";
 
@@ -207,6 +207,15 @@ inventoryRoute.post("/stock-products/:id/movements", async (c) => {
   return c.json(await coreApiService.createMovement(
     String(positiveInteger.parse(c.req.param("id"))), body, c.get("authHeaders"),
   ), 201);
+});
+
+const productImageUploadSchema = z.object({
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+});
+
+inventoryRoute.post("/products/image-upload", async (c) => {
+  const request = productImageUploadSchema.parse(await c.req.json());
+  return c.json(await productImageService.createUpload(request.contentType));
 });
 
 export { inventoryRoute };

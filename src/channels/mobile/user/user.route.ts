@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { AppBindings } from "../../../config/env.js";
 import { authService, profileService } from "../../../services/index.js";
 import { authMiddleware } from "../../../middlewares/index.js";
-import { loginSchema, registerSchema } from "../../../schemas/index.js";
+import { loginSchema, refreshSchema, registerSchema } from "../../../schemas/index.js";
 
 const userRoute = new Hono<AppBindings>();
 
@@ -29,6 +29,17 @@ userRoute.get("/profile", authMiddleware, async (c) => {
   const result = await profileService.getProfile({
     headers: authHeaders,
   });
+  return c.json(result);
+});
+
+userRoute.post("/refresh", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const validData = refreshSchema.parse(body);
+  const userAgent = c.req.header("User-Agent");
+  const result = await authService.refreshToken(
+    validData.refreshToken,
+    userAgent ? { headers: { "User-Agent": userAgent } } : undefined,
+  );
   return c.json(result);
 });
 
