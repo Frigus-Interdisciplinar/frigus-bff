@@ -14,6 +14,30 @@ const paging = (c: { req: { query(name: string): string | undefined } }) => ({
   size: c.req.query("size") === undefined ? undefined : pageSize.parse(c.req.query("size")),
 });
 
+const reportMonth = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mês inválido; use AAAA-MM");
+const advertisementAnalytics = async (headers: Parameters<typeof coreApiService.listMyAdvertisements>[0]) => {
+  const firstPage = await coreApiService.listMyAdvertisements(headers, 0, 100);
+  const advertisements = [...firstPage.content];
+  for (let page = 1; page < firstPage.totalPages; page += 1) {
+    const nextPage = await coreApiService.listMyAdvertisements(headers, page, 100);
+    advertisements.push(...nextPage.content);
+  }
+  return advertisements;
+};
+const clickThroughRate = (impressions: number, clicks: number) => impressions === 0 ? 0 : Number(((clicks / impressions) * 100).toFixed(2));
+const advertisementSummary = (ad: Awaited<ReturnType<typeof advertisementAnalytics>>[number]) => ({
+  id: ad.id,
+  name: ad.name,
+  productName: ad.productName,
+  category: ad.category || "Sem categoria",
+  status: ad.status,
+  startDate: ad.startDate ?? null,
+  endDate: ad.endDate ?? null,
+  cumulativeImpressions: ad.impressions,
+  cumulativeClicks: ad.clicks,
+  clickThroughRatePercent: clickThroughRate(ad.impressions, ad.clicks),
+});
+
 import { groupCreateSchema, groupUpdateSchema, stockSchema, stockProductCreateSchema, stockProductUpdateSchema, movementSchema, discardSchema, groupConversationSchema, privateConversationSchema, messageSchema, attachmentUploadSchema, reactionSchema, groupProductSchema, shoppingListSchema, shoppingItemSchema, shoppingItemUpdateSchema, completeShoppingSchema, invitationSchema, preferencesSchema, expenseSchema, checkoutSchema, aiRecipeChatSchema, httpsUrl, advertisementSchema, advertisementStatusSchema } from "../../../schemas/core-api.schema.js";
 
 /** Contracts backed by existing core-api endpoints. */
@@ -22,6 +46,58 @@ coreRoute.use("*", authMiddleware);
 
 coreRoute.get("/plans", async (c) => c.json(await coreApiService.listPlans()));
 coreRoute.get("/advertisements/mine", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listMyAdvertisements(c.get("authHeaders"), page, size)); });
+coreRoute.get("/advertisements/analytics/monthly", async (c) => {
+  const month = reportMonth.parse(c.req.query("month"));
+  const [year, monthNumber] = month.split("-").map(Number);
+  const monthStart = `${month}-01`;
+  const monthEnd = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+  const advertisements = await advertisementAnalytics(c.get("authHeaders"));
+  const campaigns = advertisements.filter((ad) => {
+    const start = (ad.startDate ?? ad.createdAt).slice(0, 10);
+    const end = ad.endDate ?? "9999-12-31";
+    return start <= monthEnd && end >= monthStart;
+  });
+  const impressions = campaigns.reduce((sum, ad) => sum + ad.impressions, 0);
+  const clicks = campaigns.reduce((sum, ad) => sum + ad.clicks, 0);
+  return c.json({
+    month,
+    metricBasis: "cumulative_counters_for_campaigns_overlapping_month",
+    campaignCount: campaigns.length,
+    activeCampaignCount: campaigns.filter((ad) => ad.status === "ACTIVE").length,
+    cumulativeImpressions: impressions,
+    cumulativeClicks: clicks,
+    clickThroughRatePercent: clickThroughRate(impressions, clicks),
+    campaigns: campaigns.map(advertisementSummary),
+  });
+});
+coreRoute.get("/advertisements/analytics/audience", async (c) => {
+  const advertisements = await advertisementAnalytics(c.get("authHeaders"));
+  const impressions = advertisements.reduce((sum, ad) => sum + ad.impressions, 0);
+  const clicks = advertisements.reduce((sum, ad) => sum + ad.clicks, 0);
+  const categoryMap = new Map<string, { campaignCount: number; cumulativeImpressions: number; cumulativeClicks: number }>();
+  for (const ad of advertisements) {
+    const category = ad.category || "Sem categoria";
+    const current = categoryMap.get(category) ?? { campaignCount: 0, cumulativeImpressions: 0, cumulativeClicks: 0 };
+    current.campaignCount += 1;
+    current.cumulativeImpressions += ad.impressions;
+    current.cumulativeClicks += ad.clicks;
+    categoryMap.set(category, current);
+  }
+  const categories = [...categoryMap].map(([category, metrics]) => ({
+    category,
+    ...metrics,
+    impressionSharePercent: impressions === 0 ? 0 : Number(((metrics.cumulativeImpressions / impressions) * 100).toFixed(2)),
+  })).sort((a, b) => b.cumulativeImpressions - a.cumulativeImpressions);
+  return c.json({
+    campaignCount: advertisements.length,
+    activeCampaignCount: advertisements.filter((ad) => ad.status === "ACTIVE").length,
+    cumulativeImpressions: impressions,
+    cumulativeClicks: clicks,
+    clickThroughRatePercent: clickThroughRate(impressions, clicks),
+    categories,
+    campaigns: advertisements.map(advertisementSummary),
+  });
+});
 coreRoute.get("/advertisements/active", async (c) => { const { page, size } = paging(c); return c.json(await coreApiService.listActiveAdvertisements(c.get("authHeaders"), page, size)); });
 coreRoute.post("/advertisements", async (c) => c.json(await coreApiService.createAdvertisement(advertisementSchema.parse(await c.req.json()), c.get("authHeaders")), 201));
 coreRoute.put("/advertisements/:id", async (c) => c.json(await coreApiService.updateAdvertisement(uuid.parse(c.req.param("id")), advertisementSchema.parse(await c.req.json()), c.get("authHeaders"))));
