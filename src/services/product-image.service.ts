@@ -21,7 +21,7 @@ export class ProductImageService {
     const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path);
     if (error) throw new Error(`Não foi possível preparar o upload da foto do produto: ${error.message}`);
     const publicUrl = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-    return { path: data.path, token: data.token, publicUrl };
+    return { path: data.path, token: data.token, uploadUrl: data.signedUrl, publicUrl };
   }
 }
 
