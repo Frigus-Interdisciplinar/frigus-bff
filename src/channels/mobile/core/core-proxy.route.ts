@@ -9,11 +9,17 @@ import { authMiddleware, publicAuthRateLimitMiddleware } from "../../../middlewa
 
 const coreProxyRoute = new Hono<AppBindings>();
 const corePathFor = (path: string) => path.replace(/^\/mobile\/core(?=\/|$)/, "") || "/";
-const isPublicGoogleLogin = (method: string, path: string) =>
-  method.toUpperCase() === "POST" && corePathFor(path) === "/auth/google";
+const publicAuthPaths = new Set([
+  "/auth/google",
+  "/auth/forgot-password",
+  "/auth/verify-reset-code",
+  "/auth/reset-password",
+]);
+const isPublicAuthRequest = (method: string, path: string) =>
+  method.toUpperCase() === "POST" && publicAuthPaths.has(corePathFor(path));
 
 coreProxyRoute.use("*", async (c, next) => {
-  if (isPublicGoogleLogin(c.req.method, c.req.path)) {
+  if (isPublicAuthRequest(c.req.method, c.req.path)) {
     await publicAuthRateLimitMiddleware(c, next);
     return;
   }
@@ -53,7 +59,7 @@ coreProxyRoute.all("*", async (c) => {
     return c.json({ status: 400, code: "BAD_REQUEST", message: "Caminho inválido" }, 400);
   }
   const headers: Record<string, string> = {};
-  if (!isPublicGoogleLogin(method, c.req.path)) {
+  if (!isPublicAuthRequest(method, c.req.path)) {
     headers.Authorization = c.get("authHeaders").Authorization;
   }
 

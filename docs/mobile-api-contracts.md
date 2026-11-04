@@ -1,6 +1,6 @@
 # Frigus BFF — contratos para integração mobile
 
-**Referência: 26/10/2026.** Inventário dos **29 endpoints efetivamente montados em `/mobile`** no código atual. Documento para compartilhamento com o time mobile: endpoint, alias da tela, autenticação, parâmetros, body, status e JSON de resposta.
+**Referência: 04/11/2026.** Inventário dos **32 endpoints efetivamente montados em `/mobile`** no código atual. Documento para compartilhamento com o time mobile: endpoint, alias da tela, autenticação, parâmetros, body, status e JSON de resposta.
 
 Os JSONs são exemplos sintéticos baseados nas rotas, schemas e DTOs; IDs, tokens, nomes e URLs não são credenciais nem registros reais. Substitua os IDs pelos retornados nas consultas. Esta entrega documenta código; não representa uma nova execução de testes HTTP.
 
@@ -23,7 +23,7 @@ Accept: application/json
 Content-Type: application/json
 ```
 
-`Content-Type` é necessário ao enviar JSON. Somente M01/M02 dispensam autenticação. O token é obtido no JSON de M01; não encaminhe a chave interna da IA ao app.
+`Content-Type` é necessário ao enviar JSON. M01/M02 e M30–M32 são públicos; M30–M32 têm limite de tentativas por IP e rota. O token é obtido no JSON de M01; não encaminhe a chave interna da IA ao app.
 
 ### Alias de tela não é endpoint
 
@@ -71,6 +71,9 @@ Os aliases ao lado de cada contrato indicam telas consumidoras/ações relaciona
 | [M27](#m27) | `POST /mobile/inventory/receipts/scan` | `qr-code`, `qr-code-carregando` | 201 | Bearer |
 | [M28](#m28) | `GET /mobile/inventory/receipts/:receiptId` | `qr-code-carregando`, `qr-code-itens` | 200 | Bearer |
 | [M29](#m29) | `POST /mobile/inventory/receipts/:receiptId/confirm` | `qr-code-confirmacao` | 200 | Bearer |
+| [M30](#m30) | `POST /mobile/core/auth/forgot-password` | `esqueci-minha-senha` | 204 | Pública, rate limit |
+| [M31](#m31) | `POST /mobile/core/auth/verify-reset-code` | `esqueci-minha-senha` | 204 | Pública, rate limit |
+| [M32](#m32) | `POST /mobile/core/auth/reset-password` | `esqueci-minha-senha` | 204 | Pública, rate limit |
 
 ## 3. Convenções e enums
 
@@ -1367,6 +1370,18 @@ O timeout geral do BFF depende de `API_TIMEOUT_MS` (default de código: 10 segun
 ### M29 — Confirmar itens da nota
 
 `POST /mobile/inventory/receipts/:receiptId/confirm` aceita `items`, cada um com `lineId` e `action`. `IMPORT` requer `productId`, `quantity` e `expireDate`; `IGNORE` descarta a linha. Responde `200` com `receiptId`, estado `IMPORTED`, `importedItems` e `ignoredLineIds`.
+
+### M30 — Solicitar recuperação de senha
+
+`POST /mobile/core/auth/forgot-password` recebe `{ "email": "pessoa@example.com" }` e responde `204` sem corpo. É pública e tem limite de tentativas por IP e rota.
+
+### M31 — Verificar código de recuperação
+
+`POST /mobile/core/auth/verify-reset-code` recebe `{ "email": "pessoa@example.com", "code": "123456" }` e responde `204` sem corpo. É pública e tem limite de tentativas por IP e rota.
+
+### M32 — Redefinir senha
+
+`POST /mobile/core/auth/reset-password` recebe `{ "email": "pessoa@example.com", "code": "123456", "newPassword": "..." }` e responde `204` sem corpo. É pública e tem limite de tentativas por IP e rota.
 ## 6. Mapa completo de aliases e cobertura mobile
 
 Esta tabela reúne os 60 aliases cadastrados na interface atual. **Ter alias/página no Web não significa ter endpoint no canal `/mobile`.** IDs Mxx referem-se às rotas da seção 4; os filtros citados devem ser enviados pelo app.
@@ -1388,7 +1403,7 @@ Esta tabela reúne os 60 aliases cadastrados na interface atual. **Ter alias/pá
 | `estoque-remover-alimento` | Estoque - Remover Peito de Frango | `3762:2561` | M07, M09 | Disponível; confirmação é estado de UI |
 | `estoque-freezer` | Estoque - Freezer | `3762:2576` | M05 ou M06; storagePlace=FREEZER | Disponível |
 | `estoque-despensa` | Estoque - Despensa | `3762:2666` | M05 ou M06; storagePlace=PANTRY | Disponível |
-| `esqueci-minha-senha` | Alterar senha - Esqueci minha senha | `3762:2757` | — | Sem recuperação de senha em /mobile |
+| `esqueci-minha-senha` | Alterar senha - Esqueci minha senha | `3762:2757` | M30–M32 | Recuperação pública com limite de tentativas |
 | `hub-conversas` | Home - Hub de conversas | `3762:2770` | — | Sem listagem/criação de conversas em /mobile |
 | `caminho-perfil` | caminho perfil | `3762:2792` | M03 | Consulta de perfil |
 | `login` | Login | `3762:2798` | M01 | Disponível |
@@ -1436,7 +1451,7 @@ Esta tabela reúne os 60 aliases cadastrados na interface atual. **Ter alias/pá
 
 ## 7. Lacunas que o time mobile precisa considerar
 
-1. **Sessão:** login entrega accessToken/refreshToken, mas refresh, logout, recuperação e troca de senha não estão montados sob `/mobile`.
+1. **Sessão:** login entrega accessToken/refreshToken. M30–M32 publicam recuperação de senha; refresh, logout e troca de senha autenticada continuam sem rota mobile.
 2. **Criação de estoque/alimento:** o mobile consulta, edita, movimenta e remove lotes existentes. Não há POST mobile para criar grupo/estoque/produto/lote. Esses endpoints existem em outros canais/upstream, mas não devem ser apresentados como contratos mobile já entregues.
 3. **Família, compras, preferências e assinatura:** não há rotas montadas nesses domínios no canal mobile, mesmo existindo serviços internos e rotas `/web` para vários deles. Uma função em `coreApiService` ou `MobileUserService` não é, por si só, uma rota HTTP publicada.
 4. **Chat humano:** não há conversas, mensagens, reações ou upload de anexos publicados em `/mobile`. M19 é somente chat IA mediado pela Core.
